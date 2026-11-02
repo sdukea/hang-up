@@ -22,6 +22,7 @@ async def synthesize(
     voice: str = config.TTS_VOICE,
     model: str = config.TTS_MODEL,
     sample_rate: int = 24000,
+    speed: float = 1.0,
 ) -> bytes:
     """Return WAV audio for `text`. Write numbers as words for best results."""
     payload = {
@@ -29,7 +30,7 @@ async def synthesize(
         "voice": voice,
         "model": model,
         "language": language,
-        "speed": 1.0,
+        "speed": speed,
         "audio_config": {
             "sample_rate": sample_rate,
             "num_channels": 1,
