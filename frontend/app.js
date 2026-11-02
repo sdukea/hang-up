@@ -12,8 +12,29 @@ const state = {
   ws: null,      // Prisma session for the current answer
   pending: 0,    // speech segments Prisma has started but not yet returned
   detected: new Set(),
-  audio: null,
+  sample: null,  // a sample worker from /api/samples, when running the demo
+  player: null,  // one shared <audio>, unlocked by the first tap (needed on iOS)
+  languages: {},
 };
+
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function unlockAudio() {
+  if (state.player) return;
+  state.player = new Audio(SILENT_WAV);
+  state.player.play().catch(() => {});
+}
+
+function playUrl(url) {
+  return new Promise((resolve) => {
+    const p = state.player;
+    p.pause();
+    p.onended = p.onerror = () => resolve();
+    p.src = url;
+    p.play().catch(() => resolve());
+  });
+}
 
 function show(screen) {
   for (const id of ["welcome", "interview", "done"]) $(`screen-${id}`).hidden = id !== screen;
@@ -29,6 +50,7 @@ function setMic(text, live = false) {
 async function loadLanguages() {
   const langs = await (await fetch("/api/languages")).json();
   for (const { code, label } of langs) {
+    state.languages[code] = label;
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.setAttribute("aria-pressed", "false");
@@ -47,20 +69,97 @@ function updateStart() {
 
 $("consent").addEventListener("change", updateStart);
 
+async function beginInterview() {
+  state.questions = await (await fetch(`/api/questions/${state.lang}`)).json();
+  state.index = 0;
+  state.answers = [];
+  const banner = $("sample-banner");
+  banner.hidden = !state.sample;
+  if (state.sample) {
+    banner.textContent = `Sample: ${state.sample.name}, ${state.sample.trade.toLowerCase()} · ${state.sample.scene_label} · synthetic voice`;
+  }
+  show("interview");
+  askQuestion();
+}
+
 $("start").addEventListener("click", async () => {
   $("welcome-error").hidden = true;
+  unlockAudio();
   try {
     await startMic();
-    state.questions = await (await fetch(`/api/questions/${state.lang}`)).json();
-    state.index = 0;
-    state.answers = [];
-    show("interview");
-    askQuestion();
+    await beginInterview();
   } catch (err) {
     $("welcome-error").textContent = `Could not start: ${err.message}`;
     $("welcome-error").hidden = false;
   }
 });
+
+async function loadSamples() {
+  const samples = await (await fetch("/api/samples")).json();
+  $("samples").replaceChildren(...samples.map((sample) => {
+    const btn = document.createElement("button");
+    btn.className = "sample";
+    const name = document.createElement("b");
+    name.textContent = `${sample.name} · ${sample.trade}`;
+    const lang = document.createElement("span");
+    lang.className = "lang";
+    lang.textContent = state.languages[sample.language] || sample.language;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = `${sample.place} · ${sample.scene_label}`;
+    btn.append(name, lang, meta);
+    btn.addEventListener("click", async () => {
+      unlockAudio();
+      state.sample = sample;
+      state.lang = sample.language;
+      try {
+        await beginInterview();
+      } catch (err) {
+        $("welcome-error").textContent = `Could not start the sample: ${err.message}`;
+        $("welcome-error").hidden = false;
+      }
+    });
+    return btn;
+  }));
+}
+
+// ---------- Sample worker playback ----------
+
+// Decode a sample answer and resample it to 16 kHz PCM16, the format the
+// microphone path sends. Decoding at 48 kHz first works in every browser.
+async function decodeSample(url) {
+  const data = await (await fetch(url)).arrayBuffer();
+  const decoded = await new OfflineAudioContext(1, 1, 48000).decodeAudioData(data);
+  const src = decoded.getChannelData(0);
+  const ratio = decoded.sampleRate / 16000;
+  const out = new Int16Array(Math.floor(src.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const pos = i * ratio;
+    const j = Math.floor(pos);
+    const a = src[j];
+    const b = src[Math.min(j + 1, src.length - 1)];
+    const v = Math.max(-1, Math.min(1, a + (b - a) * (pos - j)));
+    out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+  }
+  return out;
+}
+
+// Play the answer out loud and stream the same audio to Prisma in real time,
+// exactly as if it were coming from the microphone.
+async function playSampleAnswer() {
+  const url = state.sample.audio[state.index];
+  const pcm = await decodeSample(url);
+  const playback = playUrl(url);
+  const frame = 512;
+  const start = performance.now();
+  for (let i = 0; i < pcm.length; i += frame) {
+    const wait = start + (i / 16000) * 1000 - performance.now();
+    if (wait > 0) await sleep(wait);
+    const ws = state.ws;
+    if (ws && ws.readyState === WebSocket.OPEN && ws.listening) ws.send(pcm.slice(i, i + frame).buffer);
+  }
+  await Promise.race([playback, sleep(1500)]);
+}
 
 // ---------- Microphone ----------
 
@@ -78,6 +177,12 @@ async function startMic() {
     if (state.ws && state.ws.readyState === WebSocket.OPEN && state.ws.listening) state.ws.send(e.data);
   };
   ctx.createMediaStreamSource(stream).connect(worklet);
+  // Chrome only runs nodes that lead to the speakers, so route the worklet
+  // there through a muted gain node.
+  const mute = ctx.createGain();
+  mute.gain.value = 0;
+  worklet.connect(mute).connect(ctx.destination);
+  if (ctx.state === "suspended") await ctx.resume();
   state.mic = { stream, ctx };
 }
 
@@ -90,15 +195,9 @@ function stopMic() {
 
 // ---------- Interview ----------
 
+// The question is on screen even if its audio fails, so this never rejects.
 function playQuestion() {
-  return new Promise((resolve) => {
-    if (state.audio) state.audio.pause();
-    const audio = new Audio(`/api/questions/${state.lang}/${state.index}/audio`);
-    state.audio = audio;
-    audio.onended = resolve;
-    audio.onerror = resolve; // the question is on screen even if audio fails
-    audio.play().catch(resolve);
-  });
+  return playUrl(`/api/questions/${state.lang}/${state.index}/audio`);
 }
 
 async function askQuestion() {
@@ -115,10 +214,16 @@ async function askQuestion() {
   setMic("Listen to the question…");
   setButtons(false);
   await playQuestion();
-  await startAnswer();
-  setButtons(true);
   // Warm the cache so the next question plays without a synthesis delay.
   if (state.index + 1 < total) fetch(`/api/questions/${state.lang}/${state.index + 1}/audio`);
+  await startAnswer();
+  if (state.sample) {
+    setMic(`${state.sample.name.split(" ")[0]} is answering…`, true);
+    await playSampleAnswer();
+    await nextQuestion();
+    return;
+  }
+  setButtons(true);
 }
 
 function setButtons(enabled) {
@@ -187,7 +292,7 @@ function discardAnswer() {
   state.ws = null;
 }
 
-$("next").addEventListener("click", async () => {
+async function nextQuestion() {
   setButtons(false);
   await finishAnswer();
   const q = state.questions[state.index];
@@ -203,7 +308,9 @@ $("next").addEventListener("click", async () => {
   } else {
     finishInterview();
   }
-});
+}
+
+$("next").addEventListener("click", nextQuestion);
 
 $("rerecord").addEventListener("click", async () => {
   setButtons(false);
@@ -243,11 +350,33 @@ async function finishInterview() {
     return li;
   }));
 
+  // Sample workers already have a voice; real workers pick theirs.
+  if (state.sample) {
+    saveAndBuild(state.sample.gender);
+  } else {
+    $("voice-choice").hidden = false;
+  }
+}
+
+for (const btn of document.querySelectorAll("#voice-choice button")) {
+  btn.addEventListener("click", () => {
+    $("voice-choice").hidden = true;
+    saveAndBuild(btn.dataset.voice);
+  });
+}
+
+async function saveAndBuild(introVoice) {
   $("saved").textContent = "Saving…";
   const resp = await fetch("/api/interviews", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ language: state.lang, consent: true, answers: state.answers }),
+    body: JSON.stringify({
+      language: state.lang,
+      consent: true,
+      answers: state.answers,
+      sample_id: state.sample ? state.sample.id : null,
+      intro_voice: introVoice,
+    }),
   });
   if (!resp.ok) {
     $("saved").textContent = `Could not save (${resp.status}).`;
@@ -274,4 +403,4 @@ $("build").addEventListener("click", buildProfile);
 
 $("restart").addEventListener("click", () => location.reload());
 
-loadLanguages();
+loadLanguages().then(loadSamples);

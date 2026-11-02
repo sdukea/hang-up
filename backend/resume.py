@@ -17,14 +17,26 @@ skilled professional, but stay truthful and plain. No buzzwords, and no \
 descriptive words the worker didn't use (don't turn "roti" into "soft rotis").
 - Keep the worker's own level of claims. If they only understand a language \
 a little, list it with that level, e.g. "English (basic understanding)".
-- Convert spoken numbers to digits ("aath saal" -> 8).
+- Convert spoken numbers to digits ("aath saal" -> 8). Don't calculate \
+numbers they didn't say: if a job's duration wasn't stated, use null, even if \
+it could be worked out from other answers.
 - "native" fields are in the interview language, written in its own script. \
 If the interview language is English, native fields repeat the English.
 - speaker_gender: infer only from grammatical self-reference (e.g. Hindi \
-"karta hoon" = male, "karti hoon" = female). Otherwise "unknown".
+"karta hoon" = male, "karti hoon" = female). Never infer it from the name. \
+Otherwise "unknown".
+- Write summaries in resume style with no personal pronouns (no he, she, \
+they): use the name once, then start sentences with the work itself, e.g. \
+"Started as a helper...", "Skilled in...", "Cooked for...". Same in the \
+native summary.
+- Banned phrases: "proven track record", "highly", "dedicated", "passionate", \
+"hardworking", "skilled professional", "go-getter", "results-driven". Show \
+it with facts instead.
 
-Return a single JSON object with exactly these keys:
+Return a single JSON object with exactly these keys, in this order:
 {
+  "gender_evidence": string|null,     // the worker's exact words that mark their gender grammatically, quoted from the transcript; null if none
+  "speaker_gender": "male"|"female"|"unknown",
   "name": string|null,                // in Latin script, e.g. "Selvi", "Sunita Devi"
   "name_native": string|null,         // in the interview language's script, e.g. "செல்வி"
   "hometown": string|null,
@@ -44,8 +56,7 @@ Return a single JSON object with exactly these keys:
   "expected_pay_en": string|null,     // as stated, e.g. "Rs 18,000 per month"
   "languages_spoken": [string],       // in English, e.g. ["Hindi", "Bhojpuri"]
   "intro_native": string,             // 2-3 sentence first-person spoken intro for employers, in the interview language, natural to say aloud, numbers written as words
-  "intro_en": string,                 // the same intro in simple Indian English, first person
-  "speaker_gender": "male"|"female"|"unknown"
+  "intro_en": string                  // the same intro in simple Indian English, first person
 }"""
 
 
@@ -64,7 +75,7 @@ TEXT_KEYS = ["trade_en", "trade_native", "headline_en", "headline_native", "summ
              "summary_native", "intro_native", "intro_en"]
 
 
-def _clean(profile: dict) -> dict:
+def _clean(profile: dict, transcript: str) -> dict:
     for key in LIST_KEYS:
         if not isinstance(profile.get(key), list):
             profile[key] = []
@@ -72,7 +83,10 @@ def _clean(profile: dict) -> dict:
         profile[key] = (profile.get(key) or "").strip()
     profile["skills_en"] = profile["skills_en"][:8]
     profile["skills_native"] = profile["skills_native"][:8]
-    if profile.get("speaker_gender") not in ("male", "female"):
+    # Gender only counts if the model can quote words from the transcript that
+    # show it (e.g. Hindi "karti hoon"); a guess from the name doesn't.
+    evidence = (profile.get("gender_evidence") or "").strip()
+    if profile.get("speaker_gender") not in ("male", "female") or not evidence or evidence not in transcript:
         profile["speaker_gender"] = "unknown"
     years = profile.get("years_experience")
     profile["years_experience"] = years if isinstance(years, (int, float)) and years >= 0 else None
@@ -81,4 +95,5 @@ def _clean(profile: dict) -> dict:
 
 async def build_profile(interview: dict) -> dict:
     profile = await llm.complete_json(SYSTEM, _user_prompt(interview))
-    return _clean(profile)
+    transcript = " ".join(a["transcript"] for a in interview["answers"])
+    return _clean(profile, transcript)

@@ -23,10 +23,17 @@
       </label>
       <button id="start" class="primary big" disabled>Start</button>
       <p id="welcome-error" class="error" hidden></p>
+
+      <div class="samples">
+        <h2>No mic? Watch a sample worker</h2>
+        <p class="muted">Fictional workers with synthetic voices and real-world background noise. Their answers go through the same live pipeline as yours.</p>
+        <div id="samples" class="sample-list"></div>
+      </div>
     </section>
 
     <!-- 2. The interview -->
     <section id="screen-interview" class="screen" hidden>
+      <p id="sample-banner" class="sample-banner" hidden></p>
       <div class="progress"><div id="progress-bar"></div></div>
       <p id="progress-label" class="muted"></p>
       <p id="question" class="question"></p>
@@ -49,6 +56,13 @@
     <section id="screen-done" class="screen" hidden>
       <h2>Your answers</h2>
       <ol id="review" class="review"></ol>
+      <div id="voice-choice" class="voice-choice" hidden>
+        <p><strong>Which voice should introduce you on your card?</strong></p>
+        <div class="row">
+          <button data-voice="female">Female voice</button>
+          <button data-voice="male">Male voice</button>
+        </div>
+      </div>
       <p id="saved" class="muted"></p>
       <div class="row">
         <button id="restart">Start over</button>

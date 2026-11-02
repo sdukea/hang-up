@@ -45,7 +45,22 @@ function voiceButton(label, src) {
   return btn;
 }
 
-function render({ profile: p, audio, language, language_name: languageName }) {
+function renderSample(sample, comparison) {
+  $("sample-note").textContent = `Sample profile: a fictional worker with a synthetic voice, recorded ${sample.scene_label.toLowerCase()}. Everything below was produced live by Kaam from that audio.`;
+  $("sample-note").hidden = false;
+  $("comparison").replaceChildren(...comparison.map((c) => {
+    const li = el("li");
+    const said = el("div", null, "said");
+    said.append(el("span", "Said"), el("span", c.script));
+    const heard = el("div", null, "heard");
+    heard.append(el("span", "Heard"), el("span", c.heard || "(nothing)"));
+    li.append(el("div", c.question, "q"), said, heard);
+    return li;
+  }));
+  $("comparison-block").hidden = false;
+}
+
+function render({ profile: p, audio, language, language_name: languageName, sample, comparison }) {
   const name = p.name || "Kaam worker";
   const native = language !== "en-IN";
   document.title = `${name} · ${p.trade_en || "Kaam"}`;
@@ -147,6 +162,8 @@ function render({ profile: p, audio, language, language_name: languageName }) {
     $("download").textContent = "Download card";
   });
   $("print").addEventListener("click", () => window.print());
+
+  if (sample && comparison) renderSample(sample, comparison);
 
   $("status").hidden = true;
   for (const id of ["card", "actions", "resume"]) $(id).hidden = false;

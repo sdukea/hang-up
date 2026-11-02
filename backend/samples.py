@@ -14,6 +14,7 @@ Everything here is made up; the UI labels these as synthetic voices.
 SAMPLES = [
     {
         "id": "sunita-cook",
+        "gender": "female",
         "language": "hi-IN",
         "name": "Sunita Devi",
         "trade": "Cook",
@@ -34,6 +35,7 @@ SAMPLES = [
     },
     {
         "id": "joseph-guard",
+        "gender": "male",
         "language": "en-IN",
         "name": "Joseph Mathew",
         "trade": "Security guard",
@@ -54,6 +56,7 @@ SAMPLES = [
     },
     {
         "id": "murugan-electrician",
+        "gender": "male",
         "language": "ta-IN",
         "name": "Murugan",
         "trade": "Electrician",
@@ -74,6 +77,7 @@ SAMPLES = [
     },
     {
         "id": "rina-nanny",
+        "gender": "female",
         "language": "bn-IN",
         "name": "Rina Das",
         "trade": "Nanny and caregiver",
@@ -94,6 +98,7 @@ SAMPLES = [
     },
     {
         "id": "santosh-driver",
+        "gender": "male",
         "language": "mr-IN",
         "name": "Santosh Pawar",
         "trade": "Driver",
@@ -129,6 +134,7 @@ def public_manifest() -> list[dict]:
             "trade": s["trade"],
             "place": s["place"],
             "scene_label": s["scene_label"],
+            "gender": s["gender"],
             "audio": [f"/samples/{s['id']}/{qid}.m4a" for qid in QUESTION_IDS],
             "script": s["answers"],
         }

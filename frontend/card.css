@@ -78,9 +78,22 @@ body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil", "Not
 .details dt { color: var(--muted); }
 .details dd { margin: 0; }
 
+.sample-note {
+  margin: 0 0 14px; padding: 10px 14px; border-radius: 12px;
+  border: 1px dashed var(--border); color: var(--muted); font-size: 0.9rem;
+}
+.comparison { margin-top: 16px; }
+.comparison ol { padding-left: 18px; margin: 0; }
+.comparison li { margin-bottom: 14px; }
+.comparison .q { color: var(--muted); font-size: 0.85rem; margin-bottom: 4px; }
+.comparison .said, .comparison .heard { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; font-size: 0.95rem; }
+.comparison .said span:first-child, .comparison .heard span:first-child { color: var(--muted); font-size: 0.8rem; padding-top: 2px; }
+.comparison .heard span:last-child { font-weight: 600; }
+.try-own { display: block; margin-top: 8px; }
+
 @media print {
   body { background: #fff; }
-  .actions, #status, .voice, .qr-wrap span { display: none !important; }
+  .actions, #status, .voice, .qr-wrap span, .comparison { display: none !important; }
   .kcard { box-shadow: none; border: 1px solid #ddd; }
   .resume { border: none; padding: 0; }
 }

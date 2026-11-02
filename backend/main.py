@@ -9,6 +9,7 @@ stores finished interviews, and turns them into shareable profile cards.
 import asyncio
 import json
 import logging
+import mimetypes
 import re
 import time
 import uuid
@@ -18,11 +19,16 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
-from . import config, llm, questions, resume, tts
+from . import config, llm, questions, resume, samples, tts
 from .storage import store
 from .stt import FINAL_EVENTS, PrismaStream
+
+# Some systems map .m4a to audio/mp4a-latm, which Safari and Firefox won't play.
+mimetypes.add_type("audio/mp4", ".m4a")
 
 log = logging.getLogger("kaam")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -89,6 +95,11 @@ async def languages():
     return [{"code": code, **info} for code, info in questions.LANGUAGES.items()]
 
 
+@app.get("/api/samples")
+async def sample_workers():
+    return samples.public_manifest()
+
+
 @app.get("/api/questions/{lang}")
 async def interview_questions(lang: str):
     _check_lang(lang)
@@ -124,6 +135,9 @@ class Interview(BaseModel):
     language: str
     consent: bool
     answers: list[Answer] = Field(min_length=1, max_length=len(questions.QUESTION_IDS))
+    sample_id: str | None = Field(default=None, max_length=40)
+    # Which voice introduces the worker on their card; chosen by the worker.
+    intro_voice: Literal["male", "female"] | None = None
 
 
 @app.post("/api/interviews")
@@ -131,6 +145,8 @@ async def save_interview(interview: Interview):
     _check_lang(interview.language)
     if not interview.consent:
         raise HTTPException(status_code=400, detail="Consent is required")
+    if interview.sample_id and interview.sample_id not in samples.BY_ID:
+        raise HTTPException(status_code=400, detail="Unknown sample worker")
     interview_id = uuid.uuid4().hex[:10]
     record = {
         "id": interview_id,
@@ -154,8 +170,10 @@ async def create_profile(interview_id: str, request: Request):
     except llm.LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    voice = {"male": config.TTS_VOICE_MALE, "female": config.TTS_VOICE_FEMALE}.get(
-        profile["speaker_gender"], config.TTS_VOICE)
+    # The worker's own choice wins; otherwise use gender only when their speech
+    # showed it grammatically.
+    voice_gender = interview.get("intro_voice") or profile["speaker_gender"]
+    voice = {"male": config.TTS_VOICE_MALE, "female": config.TTS_VOICE_FEMALE}.get(voice_gender, config.TTS_VOICE)
     intros = {"en": ("en-IN", profile["intro_en"])}
     if lang != "en-IN":
         intros["native"] = (lang, profile["intro_native"])
@@ -183,6 +201,15 @@ async def create_profile(interview_id: str, request: Request):
         "profile": profile,
         "audio": audio,
     }
+    if sample := samples.BY_ID.get(interview.get("sample_id") or ""):
+        # Sample workers are fictional, so their transcripts can be public:
+        # the card shows what was said next to what Prisma heard.
+        script = dict(zip(questions.QUESTION_IDS, sample["answers"]))
+        record["sample"] = {"id": sample["id"], "scene_label": sample["scene_label"]}
+        record["comparison"] = [
+            {"question": a["question"], "script": script.get(a["question_id"], ""), "heard": a["transcript"]}
+            for a in interview["answers"]
+        ]
     await _save("profiles", interview_id, record)
     return record
 

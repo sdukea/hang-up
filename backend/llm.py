@@ -5,23 +5,29 @@ including Gnani's open-weights Evon served behind an OpenAI-compatible
 endpoint. Configure LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.
 """
 
+import asyncio
 import json
+import logging
 import re
 
 import httpx
 
 from . import config
 
+log = logging.getLogger("kaam.llm")
+
 
 class LLMError(RuntimeError):
     pass
 
 
-async def complete_json(system: str, user: str, temperature: float = 0.2) -> dict:
-    if not config.LLM_BASE_URL or not config.LLM_MODEL:
-        raise LLMError("LLM is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.")
+# Busy or rate-limited: worth retrying, then trying the fallback model.
+RETRYABLE = {429, 500, 502, 503, 504}
+
+
+async def _post(client: httpx.AsyncClient, model: str, system: str, user: str, temperature: float) -> httpx.Response:
     payload = {
-        "model": config.LLM_MODEL,
+        "model": model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "temperature": temperature,
         "response_format": {"type": "json_object"},
@@ -32,13 +38,37 @@ async def complete_json(system: str, user: str, temperature: float = 0.2) -> dic
     if config.LLM_API_KEY:
         headers["Authorization"] = f"Bearer {config.LLM_API_KEY}"
     url = config.LLM_BASE_URL.rstrip("/") + "/chat/completions"
-    try:
-        async with httpx.AsyncClient(timeout=90) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-    except httpx.HTTPError as e:
-        raise LLMError(f"Could not reach the LLM: {e.__class__.__name__}") from e
+    return await client.post(url, json=payload, headers=headers)
+
+
+async def complete_json(system: str, user: str, temperature: float = 0.2) -> dict:
+    if not config.LLM_BASE_URL or not config.LLM_MODEL:
+        raise LLMError("LLM is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.")
+
+    # Primary model twice (with a pause), then the fallback model once.
+    attempts = [(config.LLM_MODEL, 0), (config.LLM_MODEL, 2)]
+    if config.LLM_FALLBACK_MODEL:
+        attempts.append((config.LLM_FALLBACK_MODEL, 0))
+
+    resp = None
+    async with httpx.AsyncClient(timeout=60) as client:
+        for model, pause in attempts:
+            await asyncio.sleep(pause)
+            try:
+                resp = await _post(client, model, system, user, temperature)
+            except httpx.HTTPError as e:
+                log.warning("LLM %s unreachable: %s", model, e.__class__.__name__)
+                continue
+            if resp.status_code == 200:
+                break
+            if resp.status_code not in RETRYABLE:
+                raise LLMError(f"LLM request failed ({resp.status_code}): {resp.text[:300]}")
+            log.warning("LLM %s busy (%s), retrying", model, resp.status_code)
+
+    if resp is None:
+        raise LLMError("Could not reach the LLM.")
     if resp.status_code != 200:
-        raise LLMError(f"LLM request failed ({resp.status_code}): {resp.text[:300]}")
+        raise LLMError(f"LLM is busy right now ({resp.status_code}). Please try again in a minute.")
     try:
         content = resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, ValueError) as e:

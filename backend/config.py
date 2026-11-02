@@ -66,6 +66,8 @@ TTS_VOICE_FEMALE = _env("TTS_VOICE_FEMALE", "Shivani")
 LLM_BASE_URL = _env("LLM_BASE_URL")
 LLM_API_KEY = _env("LLM_API_KEY")
 LLM_MODEL = _env("LLM_MODEL")
+# Used when the main model is overloaded (e.g. 503 "high demand").
+LLM_FALLBACK_MODEL = _env("LLM_FALLBACK_MODEL")
 # Optional: "low" makes reasoning models answer faster. Sent only if set.
 LLM_REASONING_EFFORT = _env("LLM_REASONING_EFFORT")
 
