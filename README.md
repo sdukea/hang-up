@@ -34,8 +34,31 @@ Work in progress for the Great Indian AI Internship Challenge.
 - [x] Resume generation from interview answers
 - [x] Shareable card with QR code, WhatsApp sharing and image download
 - [x] Spoken introduction in the worker's language and in English
+- [x] One-tap demo with five sample workers in real-world noise
 - [ ] Contact requests that keep the worker's number private
 - [ ] Photo on the card
+
+## Try it without a microphone
+
+The start screen has five sample workers, one per language. They are
+fictional, voiced with Timbre, and recorded in realistic conditions:
+
+| Worker | Language | Trade | Where they're speaking |
+|---|---|---|---|
+| Sunita Devi | Hindi | Cook | A kitchen, pressure cooker on |
+| Joseph Mathew | Indian English | Security guard | A gate at night, traffic passing |
+| Murugan | Tamil | Electrician | A cheap phone by a busy road |
+| Rina Das | Bengali | Nanny and caregiver | Home, TV and ceiling fan on |
+| Santosh Pawar | Marathi | Driver | Street traffic and horns |
+
+Their answers ramble, self-correct and mix in English the way people
+really talk. Tapping one plays each answer out loud while streaming the same
+audio to Prisma in real time, so the transcript, resume, voice intros and
+card are all produced live. Sample cards show what was said next to what
+Prisma heard.
+
+Regenerate the audio with `uv run python -m scripts.make_samples --force`
+(edit workers in `backend/samples.py`).
 
 ## Run it
 
@@ -104,6 +127,12 @@ Answers (editable) → LLM → structured two-language profile
 
 Timbre serves one request per account at a time, so the backend queues all
 speech synthesis through a single lock and retries on rate limits.
+
+The resume writer retries when the LLM is overloaded and then falls back to
+`LLM_FALLBACK_MODEL`. It only uses facts the worker said, keeps their own
+level of claims ("understands a little English"), writes summaries without
+pronouns, and only records gender when the transcript shows it
+grammatically. Workers choose the voice that introduces them.
 
 The backend proxies audio because browsers can't set the headers Prisma needs,
 and it keeps the API key off the client.
