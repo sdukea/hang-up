@@ -13,9 +13,34 @@ def _env(name: str, default: str = "") -> str:
 
 GNANI_API_KEY = _env("GNANI_API_KEY")
 
-# Storage. Profile links (and the QR codes people have shared) must survive
-# restarts, so on a host either point DATA_DIR at a persistent volume or set
-# S3_BUCKET to use an S3-compatible bucket (R2, B2, S3) instead of local disk.
+STT_URL = "wss://api.vachana.ai/stt/v3/stream"
+STT_MODEL = "prisma-v3.0"
+STT_LANG = _env("STT_LANG", "hi-IN")
+STT_SAMPLE_RATE = 16000
+STT_MIN_SILENCE_MS = "500"
+STT_MAX_SPEECH_S = "12.0"
+STT_PARTIALS = True
+# Words a fake officer is likely to say (Prisma v3.0 `x-keyterms`, max 200).
+STT_KEYTERMS = [
+    "CBI", "police", "digital arrest", "arrest warrant", "OTP", "KYC", "customs", "parcel",
+    "courier", "Aadhaar", "PAN", "UPI", "RBI", "safe account", "money laundering", "Dadi",
+    "madam", "inspector", "officer", "account", "badge", "bank",
+]
+
+TTS_URL = "https://api.vachana.ai/api/v1/tts/inference"
+TTS_MODEL = "timbre-v2.5"
+TTS_VOICE = "Chitra"
+DADI_VOICE = _env("DADI_VOICE", "Chitra")
+DADI_SPEED = float(_env("DADI_SPEED", "1.0"))
+PAPPU_VOICE = _env("PAPPU_VOICE", "Vikrant")
+
+# Any OpenAI-compatible chat completions API.
+LLM_BASE_URL = _env("LLM_BASE_URL")
+LLM_API_KEY = _env("LLM_API_KEY")
+LLM_MODEL = _env("LLM_MODEL")
+LLM_FALLBACK_MODEL = _env("LLM_FALLBACK_MODEL")
+LLM_REASONING_EFFORT = _env("LLM_REASONING_EFFORT")
+
 DATA_DIR = Path(_env("DATA_DIR") or ROOT / "data")
 S3_BUCKET = _env("S3_BUCKET")
 S3_ENDPOINT_URL = _env("S3_ENDPOINT_URL")
@@ -23,53 +48,10 @@ S3_ACCESS_KEY_ID = _env("S3_ACCESS_KEY_ID")
 S3_SECRET_ACCESS_KEY = _env("S3_SECRET_ACCESS_KEY")
 S3_REGION = _env("S3_REGION", "auto")
 
-# Abuse limits for a public deployment: every request here spends Gnani
-# credits or LLM tokens.
-MAX_ANSWER_SECONDS = int(_env("MAX_ANSWER_SECONDS", "180"))
-MAX_LISTEN_SESSIONS = int(_env("MAX_LISTEN_SESSIONS", "4"))
-PROFILES_PER_IP_PER_HOUR = int(_env("PROFILES_PER_IP_PER_HOUR", "10"))
-
-STT_URL = "wss://api.vachana.ai/stt/v3/stream"
-STT_MODEL = _env("STT_MODEL", "prisma-v3.0")
-STT_LANG = _env("STT_LANG", "indic-auto")
-STT_SAMPLE_RATE = int(_env("STT_SAMPLE_RATE", "16000"))
-
-# Prisma only emits a transcript once VAD closes a segment. People pause to
-# think mid-answer, so allow a little silence, but cap segment length so text
-# keeps appearing on screen while they talk.
-STT_MIN_SILENCE_MS = _env("STT_MIN_SILENCE_MS", "500")
-STT_MAX_SPEECH_S = _env("STT_MAX_SPEECH_S", "10.0")
-
-# Partial transcripts (~every 450 ms while someone speaks). Undocumented, but
-# Prisma v3.0 accepts the `x-partials` header and echoes `partials_enabled`.
-STT_PARTIALS = _env("STT_PARTIALS", "true").lower() == "true"
-
-# Words Prisma should listen harder for (Prisma v3.0 `x-keyterms` header, max 200).
-STT_KEYTERMS = [
-    "driver", "electrician", "plumber", "carpenter", "painter", "mason",
-    "cook", "chef", "maid", "housekeeping", "nanny", "babysitter",
-    "security guard", "watchman", "tailor", "mechanic", "AC repair",
-    "delivery", "helper", "gardener", "beautician", "welder", "caretaker",
-    "salary", "experience", "license", "two-wheeler", "four-wheeler",
-]
-
-TTS_URL = "https://api.vachana.ai/api/v1/tts/inference"
-# Timbre v3.0 voices speak all 10 supported languages; v2.5 voices are per-language.
-TTS_MODEL = _env("TTS_MODEL", "timbre-v3.0")
-TTS_VOICE = _env("TTS_VOICE", "Shivani")
-# Voice intros on profile cards match the worker's gender when it can be
-# inferred from how they speak about themselves.
-TTS_VOICE_MALE = _env("TTS_VOICE_MALE", "Avinash")
-TTS_VOICE_FEMALE = _env("TTS_VOICE_FEMALE", "Shivani")
-
-# Any OpenAI-compatible chat completions API (hosted, or self-hosted Evon).
-LLM_BASE_URL = _env("LLM_BASE_URL")
-LLM_API_KEY = _env("LLM_API_KEY")
-LLM_MODEL = _env("LLM_MODEL")
-# Used when the main model is overloaded (e.g. 503 "high demand").
-LLM_FALLBACK_MODEL = _env("LLM_FALLBACK_MODEL")
-# Optional: "low" makes reasoning models answer faster. Sent only if set.
-LLM_REASONING_EFFORT = _env("LLM_REASONING_EFFORT")
+# Limits for a public URL: every request spends speech credits or LLM tokens.
+MAX_SESSION_SECONDS = int(_env("MAX_SESSION_SECONDS", "240"))
+MAX_LISTEN_SESSIONS = int(_env("MAX_LISTEN_SESSIONS", "6"))
+GAMES_PER_IP_PER_HOUR = int(_env("GAMES_PER_IP_PER_HOUR", "20"))
 
 
 def require_key() -> str:

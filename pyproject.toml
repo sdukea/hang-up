@@ -1,7 +1,7 @@
 [project]
-name = "kaam"
+name = "scam-dadi"
 version = "0.1.0"
-description = "Speak your skills, get a resume: voice-first profiles for India's informal workers, built on Gnani Prisma and Timbre"
+description = "Try to scam Kamla Dadi by voice. She fights back. Built on Gnani Prisma and Timbre."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -9,5 +9,5 @@ dependencies = [
     "websockets>=14",
     "httpx>=0.27",
     "python-dotenv>=1.0",
-    "boto3>=1.43.123",
+    "boto3>=1.34",
 ]

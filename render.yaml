@@ -1,10 +1,10 @@
-# Render Blueprint: New → Blueprint → pick this repo.
-# Free web services sleep after 15 minutes without traffic and lose local
-# files on restart, so profiles are stored in an S3-compatible bucket and an
-# external monitor pings /api/health every 5 minutes to keep it awake.
+# Render Blueprint: New -> Blueprint -> pick this repo.
+# Free web services sleep without traffic and lose local files on restart, so
+# the public counters use an S3-compatible bucket and an uptime monitor pings
+# /api/health every 5 minutes to keep the game awake.
 services:
   - type: web
-    name: kaam
+    name: scam-dadi
     runtime: docker
     plan: free
     region: singapore

@@ -24,7 +24,7 @@ async def synthesize(
     sample_rate: int = 24000,
     speed: float = 1.0,
 ) -> bytes:
-    """Return WAV audio for `text`. Write numbers as words for best results."""
+    """Return MP3 audio for `text`. Write numbers as words for best results."""
     payload = {
         "text": text,
         "voice": voice,
@@ -35,8 +35,8 @@ async def synthesize(
             "sample_rate": sample_rate,
             "num_channels": 1,
             "sample_width": 2,
-            "encoding": "linear_pcm",
-            "container": "wav",
+            "container": "mp3",
+            "bitrate": "64k",
         },
     }
     headers = {"X-API-Key-ID": config.require_key(), "Content-Type": "application/json"}

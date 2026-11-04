@@ -45,6 +45,7 @@ class PrismaStream:
             "x-sample-rate": str(self.sample_rate),
             "x-min-silence-ms": config.STT_MIN_SILENCE_MS,
             "x-max-speech-s": config.STT_MAX_SPEECH_S,
+            "x-idle-timeout-sec": "300",
         }
         if self.model.startswith("prisma-v3"):
             headers["x-keyterms"] = json.dumps(config.STT_KEYTERMS)

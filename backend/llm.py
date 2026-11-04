@@ -14,7 +14,7 @@ import httpx
 
 from . import config
 
-log = logging.getLogger("kaam.llm")
+log = logging.getLogger("dadi.llm")
 
 
 class LLMError(RuntimeError):
@@ -45,13 +45,11 @@ async def complete_json(system: str, user: str, temperature: float = 0.2) -> dic
     if not config.LLM_BASE_URL or not config.LLM_MODEL:
         raise LLMError("LLM is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.")
 
-    # Primary model twice (with a pause), then the fallback model once.
-    attempts = [(config.LLM_MODEL, 0), (config.LLM_MODEL, 2)]
-    if config.LLM_FALLBACK_MODEL:
-        attempts.append((config.LLM_FALLBACK_MODEL, 0))
+    # Live game: try the main model, then the fallback, without waiting around.
+    attempts = [(config.LLM_MODEL, 0), (config.LLM_FALLBACK_MODEL or config.LLM_MODEL, 0.5)]
 
     resp = None
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=7) as client:
         for model, pause in attempts:
             await asyncio.sleep(pause)
             try:
