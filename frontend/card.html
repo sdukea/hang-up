@@ -2,35 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Kaam profile</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;800&family=Noto+Sans+Devanagari:wght@400;600;800&family=Noto+Sans+Tamil:wght@400;600;800&family=Noto+Sans+Bengali:wght@400;600;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/card.css">
 </head>
 <body>
+  <svg hidden aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8L7 4Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14"/><path d="M16 5v14"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6Z"/></symbol>
+  </svg>
+
   <main class="card-page">
-    <p id="status" class="muted">Loading profile…</p>
-    <p id="sample-note" class="sample-note" hidden></p>
+    <p id="status" class="body-2">Loading…</p>
+    <h1 id="ready" class="title" hidden></h1>
 
     <article id="card" class="kcard" hidden>
       <div class="kcard-top">
         <div class="avatar" id="avatar"></div>
-        <div>
+        <div class="who">
           <p class="trade" id="trade"></p>
-          <h1 class="name" id="name"></h1>
+          <h2 class="name" id="name"></h2>
           <p class="name-native" id="name-native" hidden></p>
           <p class="place" id="place"></p>
         </div>
       </div>
 
       <p class="headline" id="headline"></p>
-      <p class="headline-native" id="headline-native" lang=""></p>
+      <p class="headline-native" id="headline-native" hidden></p>
 
-      <div class="stats" id="stats"></div>
-
+      <dl class="facts" id="facts"></dl>
       <ul class="chips" id="skills"></ul>
 
       <div class="kcard-bottom">
@@ -44,37 +51,40 @@
       <p class="made-with">Made with <strong>Kaam</strong> · voice by Gnani AI</p>
     </article>
 
-    <div id="actions" class="actions" hidden>
-      <a id="whatsapp" class="btn primary" target="_blank" rel="noopener">Share on WhatsApp</a>
-      <button id="copy" class="btn">Copy link</button>
-      <button id="download" class="btn">Download card</button>
-      <button id="print" class="btn">Print resume</button>
+    <div id="actions" class="card-actions" hidden>
+      <a id="whatsapp" class="prominent share" target="_blank" rel="noopener"><span id="whatsapp-label">Send on WhatsApp</span></a>
+      <div class="action-row">
+        <button id="copy"><svg class="icon"><use href="#i-link"/></svg><span id="copy-label">Copy Link</span></button>
+        <button id="download"><svg class="icon"><use href="#i-image"/></svg><span id="download-label">Save Image</span></button>
+        <button id="print"><svg class="icon"><use href="#i-print"/></svg><span id="print-label">Print</span></button>
+      </div>
     </div>
 
     <section id="resume" class="resume" hidden>
-      <h2>About</h2>
+      <h3>About</h3>
       <p id="summary"></p>
-      <p id="summary-native" class="native" lang=""></p>
-
+      <p id="summary-native" class="native" hidden></p>
       <div id="experience-block">
-        <h2>Experience</h2>
+        <h3>Experience</h3>
         <ul id="experience" class="experience"></ul>
       </div>
-
       <div id="proud-block">
-        <h2>Proud of</h2>
+        <h3>Proud of</h3>
         <p id="proud"></p>
       </div>
-
-      <h2>Details</h2>
-      <dl id="details" class="details"></dl>
+      <div id="pay-block">
+        <h3>Expected pay</h3>
+        <p id="pay"></p>
+      </div>
     </section>
 
-    <section id="comparison-block" class="resume comparison" hidden>
-      <h2>How Prisma heard it</h2>
-      <p class="muted">What this sample worker said (the script), next to what Gnani Prisma transcribed live through the background noise.</p>
-      <ol id="comparison"></ol>
-      <a class="btn try-own" href="/">Try it with your own voice</a>
+    <section id="sample-block" class="sample-block" hidden>
+      <p id="sample-note" class="body-2"></p>
+      <details class="comparison">
+        <summary>Compare what was said with what Prisma heard</summary>
+        <ol id="comparison"></ol>
+      </details>
+      <a class="secondary try-own" href="/">Try It With Your Voice</a>
     </section>
   </main>
 

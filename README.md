@@ -17,8 +17,9 @@ Built on [Gnani AI](https://www.gnani.ai) models:
 
 ## How it works
 
-1. Pick a language. Kaam asks a few friendly questions out loud: name, work,
-   experience, strengths, preferred area and pay, languages spoken.
+1. Pick a language. Everything after that, buttons included, is in it, and the
+   consent notice is read aloud. Kaam then asks a few friendly questions out
+   loud: name, work, experience, strengths, preferred area and pay, languages.
 2. The worker answers naturally. Prisma transcribes each answer live.
 3. Kaam turns the answers into a structured resume in English and the worker's
    language, plus a shareable card with a QR code.
@@ -40,7 +41,7 @@ Work in progress for the Great Indian AI Internship Challenge.
 
 ## Try it without a microphone
 
-The start screen has five sample workers, one per language. They are
+"Watch an Example" on the start screen has five sample workers, one per language. They are
 fictional, voiced with Timbre, and recorded in realistic conditions:
 
 | Worker | Language | Trade | Where they're speaking |
@@ -54,7 +55,7 @@ fictional, voiced with Timbre, and recorded in realistic conditions:
 Their answers ramble, self-correct and mix in English the way people
 really talk. Tapping one plays each answer out loud while streaming the same
 audio to Prisma in real time, so the transcript, resume, voice intros and
-card are all produced live. Sample cards show what was said next to what
+card are all produced live. Sample cards can show what was said next to what
 Prisma heard.
 
 Regenerate the audio with `uv run python -m scripts.make_samples --force`

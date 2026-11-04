@@ -57,6 +57,8 @@ function setMic(text, mode = "wait") {
   $("mic-status").classList.toggle("bad", mode === "bad");
   $("mic").classList.toggle("live", mode === "live");
   $("mic-glyph").setAttribute("href", mode === "live" ? "#i-mic" : "#i-speaker");
+  // Offer replay only once the question has finished, so two speakers never show.
+  $("replay").style.visibility = mode === "wait" ? "hidden" : "visible";
   if (mode !== "live") setLevel(0);
 }
 

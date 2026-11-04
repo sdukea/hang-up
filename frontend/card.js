@@ -15,39 +15,42 @@ function initials(name) {
   return (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => [...w][0]).join("").toUpperCase();
 }
 
-function stat(value, label) {
-  const box = el("div", null, "stat");
-  box.append(el("b", value), el("span", label));
-  return box;
+function fact(label, value) {
+  const row = el("div");
+  row.append(el("dt", label), el("dd", value));
+  return row;
+}
+
+function setPlaying(btn, playing) {
+  btn.classList.toggle("playing", playing);
+  btn.querySelector("use").setAttribute("href", playing ? "#i-pause" : "#i-play");
 }
 
 let current = null; // { audio, button }
 
 function voiceButton(label, src) {
-  const btn = el("button", label);
+  const btn = el("button");
+  btn.innerHTML = '<svg class="icon"><use href="#i-play"/></svg>';
+  btn.append(el("span", label));
   btn.addEventListener("click", () => {
-    if (current && current.button === btn) {
-      current.audio.pause();
-      btn.classList.remove("playing");
-      current = null;
-      return;
-    }
+    const same = current && current.button === btn;
     if (current) {
       current.audio.pause();
-      current.button.classList.remove("playing");
+      setPlaying(current.button, false);
+      current = null;
     }
+    if (same) return;
     const audio = new Audio(src);
-    audio.onended = () => { btn.classList.remove("playing"); current = null; };
+    audio.onended = () => { setPlaying(btn, false); current = null; };
     audio.play();
-    btn.classList.add("playing");
+    setPlaying(btn, true);
     current = { audio, button: btn };
   });
   return btn;
 }
 
 function renderSample(sample, comparison) {
-  $("sample-note").textContent = `Sample profile: a fictional worker with a synthetic voice, recorded ${sample.scene_label.toLowerCase()}. Everything below was produced live by Kaam from that audio.`;
-  $("sample-note").hidden = false;
+  $("sample-note").textContent = `Example: a fictional worker with a synthetic voice, ${sample.scene_label.toLowerCase()}. Kaam made this card live from that audio.`;
   $("comparison").replaceChildren(...comparison.map((c) => {
     const li = el("li");
     const said = el("div", null, "said");
@@ -57,8 +60,23 @@ function renderSample(sample, comparison) {
     li.append(el("div", c.question, "q"), said, heard);
     return li;
   }));
-  $("comparison-block").hidden = false;
+  $("sample-block").hidden = false;
 }
+
+// The worker who just made this card sees its actions in their own language.
+async function renderOwnerView(language) {
+  const ui = await (await fetch(`/api/ui/${language}`)).json();
+  $("ready").textContent = ui.ready;
+  $("ready").lang = language;
+  $("ready").hidden = false;
+  $("whatsapp-label").textContent = ui.whatsapp;
+  $("copy-label").textContent = ui.copy;
+  $("download-label").textContent = ui.image;
+  $("print-label").textContent = ui.print;
+  copiedLabel = ui.copied;
+}
+
+let copiedLabel = "Copied";
 
 function render({ profile: p, audio, language, language_name: languageName, sample, comparison }) {
   const name = p.name || "Kaam worker";
@@ -83,22 +101,13 @@ function render({ profile: p, audio, language, language_name: languageName, samp
     $("headline-native").hidden = true;
   }
 
-  const stats = [];
-  if (p.years_experience != null) stats.push(stat(`${p.years_experience} yrs`, "experience"));
-  if (p.languages_spoken.length) stats.push(stat(p.languages_spoken.join(" · "), "speaks"));
-  if (p.preferred_areas.length) stats.push(stat(p.preferred_areas.join(", "), "wants to work in"));
-  $("stats").replaceChildren(...stats);
+  const facts = [];
+  if (p.years_experience != null) facts.push(fact("Experience", `${p.years_experience} years`));
+  if (p.languages_spoken.length) facts.push(fact("Speaks", p.languages_spoken.join(", ")));
+  if (p.preferred_areas.length) facts.push(fact("Wants to work in", p.preferred_areas.join(", ")));
+  $("facts").replaceChildren(...facts);
 
-  $("skills").replaceChildren(...p.skills_en.map((skill, i) => {
-    const li = el("li", skill);
-    const translated = native && p.skills_native[i];
-    if (translated && translated !== skill) {
-      const small = el("small", translated);
-      small.lang = language;
-      li.append(small);
-    }
-    return li;
-  }));
+  $("skills").replaceChildren(...p.skills_en.map((skill) => el("li", skill)));
 
   const first = (p.name || "me").split(/\s+/)[0];
   const voices = [];
@@ -117,6 +126,7 @@ function render({ profile: p, audio, language, language_name: languageName, samp
   if (native && p.summary_native) {
     $("summary-native").textContent = p.summary_native;
     $("summary-native").lang = language;
+    $("summary-native").hidden = false;
   }
   if (p.experience.length) {
     $("experience").replaceChildren(...p.experience.map((x) => {
@@ -124,7 +134,7 @@ function render({ profile: p, audio, language, language_name: languageName, samp
       const title = [x.role_en, x.where_en].filter(Boolean).join(" · ");
       li.append(el("strong", title));
       if (x.duration) li.append(el("span", ` (${x.duration})`));
-      if (x.details_en) li.append(el("div", x.details_en, "muted"));
+      if (x.details_en) li.append(el("div", x.details_en));
       return li;
     }));
   } else {
@@ -133,43 +143,53 @@ function render({ profile: p, audio, language, language_name: languageName, samp
   if (p.proud_of_en) $("proud").textContent = p.proud_of_en;
   else $("proud-block").hidden = true;
 
-  const details = [
-    ["Trade", p.trade_en],
-    ["Experience", p.years_experience != null ? `${p.years_experience} years` : null],
-    ["Hometown", p.hometown],
-    ["Lives in", p.current_city],
-    ["Wants to work in", p.preferred_areas.join(", ")],
-    ["Expected pay", p.expected_pay_en],
-    ["Languages", p.languages_spoken.join(", ")],
-  ].filter(([, v]) => v);
-  $("details").replaceChildren(...details.flatMap(([k, v]) => [el("dt", k), el("dd", v)]));
+  if (p.expected_pay_en) $("pay").textContent = p.expected_pay_en;
+  else $("pay-block").hidden = true;
 
   // Sharing
   const shareText = `${name} · ${p.trade_en}. Hear ${first} talk about their work: ${pageUrl} #KaamChallenge`;
   $("whatsapp").href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
   $("copy").addEventListener("click", async () => {
+    const label = $("copy-label");
+    const original = label.textContent;
     await navigator.clipboard.writeText(pageUrl);
-    $("copy").textContent = "Link copied";
-    setTimeout(() => { $("copy").textContent = "Copy link"; }, 2000);
+    label.textContent = copiedLabel;
+    setTimeout(() => { label.textContent = original; }, 2000);
   });
   $("download").addEventListener("click", async () => {
-    $("download").textContent = "Preparing…";
-    const canvas = await html2canvas($("card"), { scale: 2, backgroundColor: null });
+    $("download").disabled = true;
+    // A saved image can't play audio, so it keeps only the QR code.
+    const canvas = await html2canvas($("card"), {
+      scale: 2,
+      backgroundColor: null,
+      onclone: (doc) => {
+        doc.getElementById("voice").remove();
+        doc.querySelector(".kcard-bottom").style.justifyContent = "center";
+      },
+    });
     const link = document.createElement("a");
     link.download = `kaam-${(p.name || "profile").toLowerCase().replace(/\s+/g, "-")}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    $("download").textContent = "Download card";
+    $("download").disabled = false;
   });
   $("print").addEventListener("click", () => window.print());
 
   if (sample && comparison) renderSample(sample, comparison);
+  if (new URLSearchParams(location.search).has("new")) renderOwnerView(language);
 
   $("status").hidden = true;
   for (const id of ["card", "actions", "resume"]) $(id).hidden = false;
 }
 
 fetch(`/api/profiles/${profileId}`)
-  .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? "Profile not found." : `Error ${r.status}`))))
+  .then((r) => {
+    if (r.status === 404) throw new Error("This card doesn't exist. Check the link.");
+    if (!r.ok) throw new Error("Couldn't load this card. Try again in a minute.");
+    return r.json();
+  })
   .then(render)
-  .catch((err) => { $("status").textContent = err.message; });
+  .catch((err) => {
+    console.warn(err);
+    $("status").textContent = err.message.startsWith("Co") || err.message.startsWith("This") ? err.message : "Couldn't load this card. Try again in a minute.";
+  });
