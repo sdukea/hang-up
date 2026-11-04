@@ -134,6 +134,7 @@ Also: {twist}
 {returning}
 Current state: suspicion {suspicion}/100, trust {trust}/100. {tone}
 Counter-move to weave in if it fits this reply: {counter}
+Jokes already used in this call, which you must not use again: {used_gags}
 
 The call so far:
 {history}
@@ -183,6 +184,7 @@ class Game:
         self.effects = self.rng.sample(COUNTER_EFFECTS, len(COUNTER_EFFECTS))
         self.next_effect_turn = self.rng.randint(1, 2)
         self.outcome: str | None = None
+        self.last_notes: list[str] = []
 
     # ---- hints ----
 
@@ -195,8 +197,25 @@ class Game:
         return "ask"
 
     def boss_hint(self) -> dict:
+        """What Boss whispers next: the next real tactic, or a warning if it's going wrong."""
         tactic = self.next_tactic()
-        return {"tactic": tactic, "label": TACTICS[tactic]["label"], "text": TACTICS[tactic]["boss"]}
+        hint = {"tactic": tactic, "label": TACTICS[tactic]["label"], "text": TACTICS[tactic]["boss"]}
+        if "contradiction" in self.last_notes:
+            hint["text"] = "Kahani badal di tune! Naam aur badge wahi rakh. Asli scammers bhi yahin pakde jaate hain."
+            hint["warn"] = True
+        elif "too_soon" in self.last_notes:
+            hint["text"] = "Itni jaldi OTP? Pehle kahani bana. Authority, phir dar, phir jaldi."
+            hint["warn"] = True
+        elif "repeat" in self.last_notes:
+            hint["text"] = "Wahi trick dobara mat chala, samajh gayi hai. " + hint["text"]
+            hint["warn"] = True
+        elif self.suspicion >= 70:
+            hint["text"] = "Shak kar rahi hai! Dheere. Pyaar se baat kar warna 1930 ghuma degi."
+            hint["warn"] = True
+        return hint
+
+    def intel(self) -> str:
+        return f"{self.mood['weak']} Also: {self.twist['label']}."
 
     # ---- rules ----
 
@@ -247,6 +266,7 @@ class Game:
         self.trust = min(100.0, self.trust + gain)
         self.suspicion = min(100.0, max(0.0, self.suspicion + heat))
         info["trust_gain"], info["heat"] = round(gain), round(heat)
+        self.last_notes = info["notes"]
         return info
 
     def award_digits(self) -> list[dict]:
@@ -316,6 +336,7 @@ class Game:
             mood=self.mood["name"], mood_voice=self.mood["voice"], twist=self.twist["voice"],
             returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
             counter=COUNTER_PROMPTS.get(counter, "none, just be yourself"), history=history, said=said,
+            used_gags=", ".join(GAG_WORDS[g] for g, n in self.gags.items() if n) or "none yet",
         )
 
     async def turn(self, said: str, seconds_left: float) -> dict:
@@ -368,6 +389,11 @@ class Game:
             "weak": self.mood["weak"],
         }
 
+
+GAG_WORDS = {
+    "knee": "the knee", "food": "asking if they've eaten", "shaadi": "asking about marriage",
+    "chashma": "lost glasses", "pappu": "Pappu", "scooter": "the scooter",
+}
 
 COUNTER_PROMPTS = {
     "hold": "put them on hold because of the pressure cooker or something at the door",

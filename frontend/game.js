@@ -12,10 +12,10 @@ const post = (url, body) => fetch(url, {
 
 const SHOUT_LEVEL = 0.32;      // how loud "louder!" means, on the 0-1 meter
 const COUNTER_NOTES = {
-  hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed."],
-  shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart."],
-  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself."],
-  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call ends most scams."],
+  hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta."],
+  shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
+  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!"],
+  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call ends most scams.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'."],
 };
 const GAG_LABELS = {
   knee: "🦵 Ghutna", food: "🍛 Khana khaya?", shaadi: "💍 Shaadi kab?",
@@ -165,7 +165,7 @@ const clip = (name) => `/audio/${name}.mp3`;
 
 function show(name) {
   for (const id of ["title", "brief", "ring", "game", "end", "report"]) $(`s-${id}`).hidden = id !== name;
-  document.body.classList.toggle("in-game", name === "game");
+  document.body.classList.toggle("in-game", name === "game" || name === "report");
 }
 
 function bubble(text) {
@@ -209,6 +209,15 @@ function setBoss(boss, tag) {
   $("boss").classList.add("new");
   sfx.radio();
   document.querySelectorAll(".trick").forEach((el) => el.classList.toggle("next", el.dataset.id === boss.tactic && !el.classList.contains("used")));
+}
+
+function setBossText(text, tag) {
+  $("boss-line").textContent = text;
+  $("boss-tag").textContent = tag;
+  $("boss").classList.remove("new");
+  void $("boss").offsetWidth;
+  $("boss").classList.add("new");
+  sfx.radio();
 }
 
 function setSuspicion(value) {
@@ -339,7 +348,7 @@ async function beginCall() {
   let data;
   try {
     const resp = await post("/api/game/start", {
-      hour: new Date().getHours(),
+      hour: forcedHour() ?? new Date().getHours(),
       returning_name: returning,
       quiz: state.quizBefore,
     });
@@ -367,10 +376,11 @@ async function beginCall() {
   await sleep(1500);
 
   show("game");
-  setBoss(data.boss, "· Your first move");
+  setBossText(data.intel, `· Intel on ${data.mood_name}`);
   setSuspicion(data.suspicion);
   pop(data.mood_name.toUpperCase(), data.twist);
   await say(clip(data.greet));
+  if (!state.over) setBoss(data.boss, "· Your first move");
   startTimer();
   state.idleAt = Date.now() + 14000;
 }
@@ -652,7 +662,10 @@ function applyCounter(effect, passed) {
 
 async function runCounter(effect) {
   const note = COUNTER_NOTES[effect];
-  if (note) pop(note[0], note[1], "move");
+  if (note) {
+    pop(note[0], note[1], "move");
+    setBossText(note[2], "· She's fighting back");
+  }
   if (effect === "hold") {
     await say(clip("hold"));
     await holdPhase();
@@ -817,7 +830,7 @@ async function crackedEnding() {
   }
   money.classList.add("zero");
   await sleep(900);
-  $("crack-text").textContent = "Kamla Dadi is fictional. Her savings are not always.";
+  $("crack-text").textContent = "Kamla Dadi is fictional. The people who lose everything this way are not.";
   await sleep(2600);
   $("crack-text").textContent = "Real grandmothers lose everything to these exact tricks, and they have no AI defending them.";
   await sleep(3400);
@@ -827,13 +840,12 @@ async function crackedEnding() {
 
 function showReport() {
   const r = state.report;
-  document.body.classList.remove("in-game");
   show("report");
   $("s-report").scrollTop = 0;
   $("r-mood").textContent = `${r.mood} · ${r.twist}`;
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
-  $("r-crack").textContent = r.crack_rate != null ? `Only ${r.crack_rate}% of callers have ever cracked her.` : "";
+  $("r-crack").textContent = !r.crack_rate ? "Nobody has cracked her yet." : `Only ${r.crack_rate}% of callers have ever cracked her.`;
 
   $("r-otp").replaceChildren(...[0, 1, 2, 3].map((i) => {
     const slot = document.createElement("div");
@@ -860,7 +872,15 @@ function showReport() {
     ? "You just used the tricks real scammers use. Here's how to see through each one."
     : "You didn't use one real scam trick. Here's the one that matters most.";
   const shown = lessons.length ? lessons : [{ label: "Fear", real: "Threats of arrest are designed to stop you thinking.", defence: "There is no such thing as a 'digital arrest'. Police don't arrest anyone over a phone or video call." }];
-  $("r-lessons").replaceChildren(...shown.map((l) => {
+  // The newest trick first. Keep it short, and let the curious open the rest.
+  const ordered = [...shown].reverse();
+  $("r-lessons").replaceChildren(...ordered.slice(0, 2).map(lessonCard));
+  $("r-more").hidden = ordered.length <= 2;
+  $("r-more").onclick = () => {
+    $("r-lessons").append(...ordered.slice(2).map(lessonCard));
+    $("r-more").hidden = true;
+  };
+  function lessonCard(l) {
     const card = document.createElement("div");
     card.className = "lesson";
     const b = document.createElement("b");
@@ -872,7 +892,7 @@ function showReport() {
     def.textContent = `If it's you: ${l.defence}`;
     card.append(b, real, def);
     return card;
-  }));
+  }
 
   const missed = r.missed || [];
   const tip = [r.weak && `Today's Dadi: ${r.weak}`, missed.length ? `You never tried: ${missed.join(", ")}.` : ""].filter(Boolean).join(" ");
@@ -1074,6 +1094,12 @@ $("b-sos-2").addEventListener("click", openSos);
 $("b-sos-close").addEventListener("click", () => { $("sos-sheet").hidden = true; });
 
 // ---------- Small things ----------
+
+// ?hour=23 meets another Dadi on demand, for demos and recording.
+function forcedHour() {
+  const h = new URLSearchParams(location.search).get("hour");
+  return h !== null && Number(h) >= 0 && Number(h) <= 23 ? Number(h) : null;
+}
 
 function safeGet(key) {
   try { return localStorage.getItem(key); } catch (err) { return null; }

@@ -132,7 +132,7 @@ async def start_game(body: Start, request: Request):
     return {
         "id": g.id, "seconds": game.GAME_SECONDS, "mood": g.mood_key, "mood_name": g.mood["name"],
         "tagline": g.mood["tagline"], "twist": g.twist["label"], "greet": greet,
-        "suspicion": round(g.suspicion), "boss": g.boss_hint(),
+        "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
     }
 
