@@ -7,6 +7,7 @@ stores finished interviews, and turns them into shareable profile cards.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import mimetypes
@@ -106,22 +107,41 @@ async def interview_questions(lang: str):
     return questions.questions_for(lang)
 
 
+async def _cached_speech(key: str, text: str, lang: str) -> Response:
+    """Spoken prompt, synthesized once and stored to save credits."""
+    audio = await store.get(key)
+    if audio is None:
+        try:
+            audio = await tts.synthesize(text, lang)
+        except (tts.TTSError, RuntimeError) as e:
+            raise HTTPException(status_code=502, detail=str(e))
+        await store.put(key, audio, "audio/wav")
+    return Response(content=audio, media_type="audio/wav", headers=AUDIO_HEADERS)
+
+
 @app.get("/api/questions/{lang}/{index}/audio")
 async def question_audio(lang: str, index: int):
-    """Spoken question, synthesized once and stored to save credits."""
     _check_lang(lang)
     qs = questions.questions_for(lang)
     if not 0 <= index < len(qs):
         raise HTTPException(status_code=404, detail="No such question")
     key = f"cache/questions/{config.TTS_MODEL}-{config.TTS_VOICE}-{lang}-{qs[index]['id']}.wav"
-    audio = await store.get(key)
-    if audio is None:
-        try:
-            audio = await tts.synthesize(qs[index]["text"], lang)
-        except (tts.TTSError, RuntimeError) as e:
-            raise HTTPException(status_code=502, detail=str(e))
-        await store.put(key, audio, "audio/wav")
-    return Response(content=audio, media_type="audio/wav", headers=AUDIO_HEADERS)
+    return await _cached_speech(key, qs[index]["text"], lang)
+
+
+@app.get("/api/ui/{lang}")
+async def ui_text(lang: str):
+    _check_lang(lang)
+    return questions.UI[lang]
+
+
+@app.get("/api/ui/{lang}/intro/audio")
+async def intro_audio(lang: str):
+    """The consent notice read aloud. The text's hash keeps the cache honest if it changes."""
+    _check_lang(lang)
+    text = questions.UI[lang]["intro"]
+    digest = hashlib.sha256(text.encode()).hexdigest()[:8]
+    return await _cached_speech(f"cache/ui/{config.TTS_MODEL}-{config.TTS_VOICE}-{lang}-intro-{digest}.wav", text, lang)
 
 
 class Answer(BaseModel):

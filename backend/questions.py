@@ -59,8 +59,79 @@ QUESTIONS = {
     ],
 }
 
+# Everything the worker sees or hears around the questions, in their language.
+# `intro` is also spoken aloud, because not everyone can read a consent notice.
+UI = {
+    "en-IN": {
+        "intro_title": "Just 6 questions. Answer by speaking.",
+        "intro": "Your answers go to speech and AI services to make your resume. Kaam doesn't save your recording. Anyone with your card's link can see your card.",
+        "start": "Start", "speak": "Speak now", "listen": "Listen", "wait": "One moment…",
+        "next": "Next", "finish": "Finish", "skip": "Skip", "again": "Say Again", "fix": "Fix",
+        "voice_q": "Which voice should introduce you?", "female": "Female Voice", "male": "Male Voice",
+        "building": "Making your resume…", "retry": "Try Again",
+        "mic_blocked": "The microphone is off. Allow it in your browser settings, then try again.",
+        "speech_error": "Can't hear right now. Try again.",
+        "quit": "Start over? Your answers will be lost.",
+        "ready": "Your card is ready", "whatsapp": "Send on WhatsApp", "copy": "Copy Link",
+        "copied": "Copied", "image": "Save Image", "print": "Print",
+    },
+    "hi-IN": {
+        "intro_title": "बस 6 सवाल। बोलकर जवाब दीजिए।",
+        "intro": "आपके जवाब रिज़्यूमे बनाने के लिए आवाज़ और AI सेवाओं को भेजे जाते हैं। काम आपकी रिकॉर्डिंग सेव नहीं करता। आपके कार्ड का लिंक जिसके पास होगा, वह आपका कार्ड देख सकता है।",
+        "start": "शुरू करें", "speak": "अब बोलिए", "listen": "सुनिए", "wait": "एक पल…",
+        "next": "आगे", "finish": "पूरा करें", "skip": "छोड़ें", "again": "फिर से बोलें", "fix": "ठीक करें",
+        "voice_q": "आपका परिचय किस आवाज़ में हो?", "female": "महिला की आवाज़", "male": "पुरुष की आवाज़",
+        "building": "आपका रिज़्यूमे बन रहा है…", "retry": "फिर कोशिश करें",
+        "mic_blocked": "माइक बंद है। ब्राउज़र की सेटिंग में माइक की अनुमति दीजिए, फिर कोशिश कीजिए।",
+        "speech_error": "अभी सुनाई नहीं दे रहा। फिर कोशिश कीजिए।",
+        "quit": "दोबारा शुरू करें? आपके जवाब मिट जाएँगे।",
+        "ready": "आपका कार्ड तैयार है", "whatsapp": "WhatsApp पर भेजें", "copy": "लिंक कॉपी करें",
+        "copied": "कॉपी हो गया", "image": "फ़ोटो सेव करें", "print": "प्रिंट करें",
+    },
+    "ta-IN": {
+        "intro_title": "ஆறு கேள்விகள் மட்டும். பேசி பதில் சொல்லுங்கள்.",
+        "intro": "உங்கள் ரெஸ்யூமே தயாரிக்க, உங்கள் பதில்கள் குரல் மற்றும் AI சேவைகளுக்கு அனுப்பப்படும். காம் உங்கள் பதிவைச் சேமிக்காது. உங்கள் கார்டின் லிங்க் உள்ள யாரும் உங்கள் கார்டைப் பார்க்கலாம்.",
+        "start": "தொடங்குங்கள்", "speak": "இப்போது பேசுங்கள்", "listen": "கேளுங்கள்", "wait": "ஒரு நிமிடம்…",
+        "next": "அடுத்து", "finish": "முடிக்கவும்", "skip": "தவிர்க்கவும்", "again": "மீண்டும் சொல்லுங்கள்", "fix": "திருத்தவும்",
+        "voice_q": "எந்தக் குரலில் உங்களை அறிமுகப்படுத்தலாம்?", "female": "பெண் குரல்", "male": "ஆண் குரல்",
+        "building": "உங்கள் ரெஸ்யூமே தயாராகிறது…", "retry": "மீண்டும் முயலுங்கள்",
+        "mic_blocked": "மைக் ஆஃப் ஆக உள்ளது. பிரவுசர் செட்டிங்ஸில் அனுமதி கொடுத்து மீண்டும் முயலுங்கள்.",
+        "speech_error": "இப்போது கேட்கவில்லை. மீண்டும் முயலுங்கள்.",
+        "quit": "மீண்டும் தொடங்கவா? உங்கள் பதில்கள் அழிந்துவிடும்.",
+        "ready": "உங்கள் கார்டு தயார்", "whatsapp": "WhatsApp-ல் அனுப்பவும்", "copy": "லிங்க் காப்பி",
+        "copied": "காப்பி ஆனது", "image": "படத்தைச் சேமிக்கவும்", "print": "பிரிண்ட்",
+    },
+    "bn-IN": {
+        "intro_title": "মাত্র ৬টি প্রশ্ন। বলে উত্তর দিন।",
+        "intro": "আপনার রেজিউমে তৈরি করতে আপনার উত্তর ভয়েস ও AI পরিষেবায় পাঠানো হয়। কাম আপনার রেকর্ডিং সেভ করে না। আপনার কার্ডের লিংক যার কাছে থাকবে, সে আপনার কার্ড দেখতে পাবে।",
+        "start": "শুরু করুন", "speak": "এবার বলুন", "listen": "শুনুন", "wait": "এক মুহূর্ত…",
+        "next": "পরের", "finish": "শেষ করুন", "skip": "বাদ দিন", "again": "আবার বলুন", "fix": "ঠিক করুন",
+        "voice_q": "কোন কণ্ঠে আপনার পরিচয় দেওয়া হবে?", "female": "মহিলা কণ্ঠ", "male": "পুরুষ কণ্ঠ",
+        "building": "আপনার রেজিউমে তৈরি হচ্ছে…", "retry": "আবার চেষ্টা করুন",
+        "mic_blocked": "মাইক বন্ধ আছে। ব্রাউজারের সেটিংসে অনুমতি দিয়ে আবার চেষ্টা করুন।",
+        "speech_error": "এখন শোনা যাচ্ছে না। আবার চেষ্টা করুন।",
+        "quit": "আবার শুরু করবেন? আপনার উত্তর মুছে যাবে।",
+        "ready": "আপনার কার্ড তৈরি", "whatsapp": "WhatsApp-এ পাঠান", "copy": "লিংক কপি করুন",
+        "copied": "কপি হয়েছে", "image": "ছবি সেভ করুন", "print": "প্রিন্ট করুন",
+    },
+    "mr-IN": {
+        "intro_title": "फक्त ६ प्रश्न. बोलून उत्तर द्या.",
+        "intro": "तुमचा रेझ्युमे बनवण्यासाठी तुमची उत्तरे आवाज आणि AI सेवांकडे पाठवली जातात. काम तुमचे रेकॉर्डिंग सेव्ह करत नाही. तुमच्या कार्डची लिंक ज्याच्याकडे असेल, त्याला तुमचे कार्ड दिसू शकते.",
+        "start": "सुरू करा", "speak": "आता बोला", "listen": "ऐका", "wait": "एक क्षण…",
+        "next": "पुढे", "finish": "पूर्ण करा", "skip": "वगळा", "again": "पुन्हा बोला", "fix": "दुरुस्त करा",
+        "voice_q": "तुमची ओळख कोणत्या आवाजात करून द्यायची?", "female": "महिलेचा आवाज", "male": "पुरुषाचा आवाज",
+        "building": "तुमचा रेझ्युमे तयार होत आहे…", "retry": "पुन्हा प्रयत्न करा",
+        "mic_blocked": "माइक बंद आहे. ब्राउझरच्या सेटिंग्जमध्ये परवानगी देऊन पुन्हा प्रयत्न करा.",
+        "speech_error": "आत्ता ऐकू येत नाही. पुन्हा प्रयत्न करा.",
+        "quit": "पुन्हा सुरू करायचे? तुमची उत्तरे पुसली जातील.",
+        "ready": "तुमचे कार्ड तयार आहे", "whatsapp": "WhatsApp वर पाठवा", "copy": "लिंक कॉपी करा",
+        "copied": "कॉपी झाले", "image": "फोटो सेव्ह करा", "print": "प्रिंट करा",
+    },
+}
+
 assert all(len(qs) == len(QUESTION_IDS) for qs in QUESTIONS.values())
-assert QUESTIONS.keys() == LANGUAGES.keys()
+assert QUESTIONS.keys() == LANGUAGES.keys() == UI.keys()
+assert all(t.keys() == UI["en-IN"].keys() for t in UI.values())
 
 
 def questions_for(lang: str) -> list[dict]:
