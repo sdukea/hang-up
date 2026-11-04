@@ -250,7 +250,7 @@ async def profile_audio(profile_id: str, which: str):
 
 @app.get("/p/{profile_id}")
 async def profile_page(profile_id: str):
-    return FileResponse(FRONTEND / "card.html")
+    return FileResponse(FRONTEND / "card.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.websocket("/ws/listen")
@@ -309,4 +309,13 @@ async def listen(browser: WebSocket, lang: str | None = None):
         await prisma.close()
 
 
-app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
+class Frontend(StaticFiles):
+    """Revalidate on every load, so visitors never keep an old version after a deploy."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/", Frontend(directory=FRONTEND, html=True), name="frontend")
