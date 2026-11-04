@@ -1,4 +1,4 @@
-"""Where Kaam keeps interviews, profiles and audio.
+"""Where the public game counters are kept.
 
 Two backends behind one async interface:
 

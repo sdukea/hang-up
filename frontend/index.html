@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#2a0a5e">
+  <title>Scam Dadi</title>
+  <meta name="description" content="You are a fake officer. Get Kamla Dadi's OTP. Nobody said it would be easy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Bungee&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Kamla Dadi. Cloned into each screen that needs her. -->
+  <template id="dadi-art">
+    <svg class="dadi" viewBox="0 0 300 330" role="img" aria-label="Kamla Dadi">
+      <g class="d-body">
+        <path d="M34 330c4-74 44-112 116-112s112 38 116 112Z" fill="#ff2e7e" stroke="#1b0b2e" stroke-width="6"/>
+        <path d="M92 236c18 34 38 56 58 92M208 236c-18 34-38 56-58 92" fill="none" stroke="#ffb300" stroke-width="12"/>
+        <path d="M122 226h56v28c-16 12-40 12-56 0Z" fill="#c98a5b" stroke="#1b0b2e" stroke-width="5"/>
+      </g>
+      <g class="d-head">
+        <path d="M58 104c-8-62 44-90 92-90s100 28 92 90c-2 14-8 22-14 28H72c-6-6-12-14-14-28Z" fill="#f4f1ea" stroke="#1b0b2e" stroke-width="6"/>
+        <circle cx="150" cy="22" r="22" fill="#f4f1ea" stroke="#1b0b2e" stroke-width="6"/>
+        <path d="M70 118c0-52 34-74 80-74s80 22 80 74c0 58-34 104-80 104s-80-46-80-104Z" fill="#d89a68" stroke="#1b0b2e" stroke-width="6"/>
+        <path d="M74 96c16-30 44-46 76-46s60 16 76 46c-30-20-52-26-76-26s-46 6-76 26Z" fill="#f4f1ea" stroke="#1b0b2e" stroke-width="5"/>
+        <circle cx="150" cy="84" r="7" fill="#e0112b" stroke="#1b0b2e" stroke-width="3"/>
+        <circle cx="96" cy="150" r="13" fill="#e8755f" opacity=".55"/>
+        <circle cx="204" cy="150" r="13" fill="#e8755f" opacity=".55"/>
+        <g class="d-brows" fill="none" stroke="#f4f1ea" stroke-width="7" stroke-linecap="round">
+          <path class="d-brow-l" d="M96 96q16-9 30 0"/>
+          <path class="d-brow-r" d="M174 96q14-9 30 0"/>
+        </g>
+        <g class="d-eyes" fill="#1b0b2e">
+          <circle cx="112" cy="122" r="7.5"/>
+          <circle cx="188" cy="122" r="7.5"/>
+        </g>
+        <g class="d-glasses" fill="#ffffff55" stroke="#1b0b2e" stroke-width="6">
+          <circle cx="112" cy="122" r="26"/>
+          <circle cx="188" cy="122" r="26"/>
+          <path d="M138 120q12-6 24 0" fill="none"/>
+        </g>
+        <path d="M150 128q-9 22-3 30q6 4 12 0" fill="none" stroke="#1b0b2e" stroke-width="5" stroke-linecap="round"/>
+        <path d="M100 176q6 8 14 8M200 176q-6 8-14 8" fill="none" stroke="#a96e43" stroke-width="4" stroke-linecap="round"/>
+        <g class="d-mouth-wrap">
+          <path class="d-smile" d="M122 182q28 20 56 0" fill="none" stroke="#1b0b2e" stroke-width="6" stroke-linecap="round"/>
+          <ellipse class="d-mouth" cx="150" cy="186" rx="19" ry="12" fill="#6b1420" stroke="#1b0b2e" stroke-width="5"/>
+        </g>
+        <circle cx="70" cy="160" r="9" fill="#ffb300" stroke="#1b0b2e" stroke-width="4"/>
+      </g>
+      <g class="d-phone">
+        <path d="M232 60c24-8 42 8 44 34l6 74c2 24-14 40-38 38l-14-40 16-8-6-52-18-4Z" fill="#00c2a8" stroke="#1b0b2e" stroke-width="6" stroke-linejoin="round"/>
+      </g>
+    </svg>
+  </template>
+
+  <div id="app">
+    <!-- TITLE -->
+    <section id="s-title" class="screen">
+      <div class="sunburst"></div>
+      <div class="title-top">
+        <h1 class="logo"><span>SCAM</span><span>DADI</span></h1>
+        <p class="kicker">Get her OTP. <b>If you can.</b></p>
+      </div>
+      <div class="title-dadi" data-dadi></div>
+      <div class="title-bottom">
+        <div class="scoreboard">
+          <div><b id="st-plays">0</b><small>scammers tried</small></div>
+          <div class="hot"><b id="st-rate">0</b><small>cracked her</small></div>
+          <div><b id="st-mins">0</b><small>minutes wasted</small></div>
+        </div>
+        <button id="b-start" class="chunky pink">Start the scam</button>
+        <p class="fine">A comedy game. All fictional. <b>Never say a real OTP, PIN or account number.</b></p>
+      </div>
+    </section>
+
+    <!-- BRIEFING -->
+    <section id="s-brief" class="screen" hidden>
+      <div class="casefile">
+        <div class="stamp">TOP SECRET</div>
+        <h2>Your mission</h2>
+        <p class="brief-line">You are a <b>fake officer</b>. Your target is <b>Kamla Dadi, 78</b>. Get her <b>4-digit OTP</b> before she works you out.</p>
+        <ul class="howto">
+          <li><span class="key">🎙️</span><div><b>Hold and talk.</b> Really talk, out loud. Hindi or Hinglish.</div></li>
+          <li><span class="key">📻</span><div><b>Listen to Boss.</b> He knows what real scammers do.</div></li>
+          <li><span class="key">👁️</span><div><b>Watch her suspicion.</b> It hits 100 and you're finished.</div></li>
+          <li><span class="key">🎭</span><div><b>She's different every time.</b> The hour changes her. So does her luck.</div></li>
+        </ul>
+        <div class="clearance">
+          <p><b>Clearance question:</b> Can police arrest someone over a video call?</p>
+          <div class="yn">
+            <button class="chunky mini teal" data-quiz="true">Yes</button>
+            <button class="chunky mini teal" data-quiz="false">No</button>
+          </div>
+        </div>
+        <p id="brief-error" class="brief-error" hidden></p>
+      </div>
+    </section>
+
+    <!-- RINGING -->
+    <section id="s-ring" class="screen" hidden>
+      <div class="ring-card">
+        <div class="ring-dadi" data-dadi></div>
+        <p class="ring-label">Calling…</p>
+        <h2>Kamla Dadi</h2>
+        <p id="ring-mood" class="ring-mood"></p>
+        <p id="ring-tag" class="ring-tag"></p>
+      </div>
+    </section>
+
+    <!-- THE CALL -->
+    <section id="s-game" class="screen" hidden>
+      <header class="hud">
+        <button id="b-hang" class="hang" aria-label="Hang up">☎️</button>
+        <div class="meter" aria-label="Suspicion">
+          <span class="m-label">👁️ SUSPICION</span>
+          <div class="m-track"><div id="m-fill" class="m-fill"></div></div>
+        </div>
+        <div id="timer" class="timer">2:30</div>
+      </header>
+
+      <div class="otp" aria-label="OTP">
+        <span class="otp-label">OTP</span>
+        <div class="slot" data-slot="0">?</div>
+        <div class="slot" data-slot="1">?</div>
+        <div class="slot" data-slot="2">?</div>
+        <div class="slot" data-slot="3">?</div>
+      </div>
+
+      <div class="scene" id="scene">
+        <div class="room">
+          <div class="room-window"></div>
+          <div class="room-frame"></div>
+          <div class="room-cooker"><span class="steam"></span></div>
+        </div>
+        <div id="bubble" class="bubble" hidden></div>
+        <div id="dadi-slot" class="dadi-slot" data-dadi></div>
+        <div id="pappu" class="pappu" hidden>🧑‍💻<b>PAPPU</b></div>
+        <div id="away" class="away" hidden>
+          <b>ON HOLD</b>
+          <span id="away-count">6</span>
+          <small>Dadi has gone to check the cooker</small>
+        </div>
+        <div id="pops" class="pops" aria-live="polite"></div>
+      </div>
+
+      <div id="boss" class="boss">
+        <div class="boss-radio">📻</div>
+        <div class="boss-text">
+          <small>BOSS <span id="boss-tag"></span></small>
+          <p id="boss-line"></p>
+        </div>
+      </div>
+
+      <div class="tricks" id="tricks"></div>
+
+      <div class="controls">
+        <p id="you-said" class="you-said"></p>
+        <div class="talk-row">
+          <button id="b-type" class="side-btn" aria-label="Type instead">⌨️</button>
+          <button id="b-talk" class="talk">
+            <span class="talk-ring"></span>
+            <span class="talk-mic">🎙️</span>
+            <span id="talk-label" class="talk-label">HOLD TO TALK</span>
+          </button>
+          <button id="b-sos-2" class="side-btn sos-mini" aria-label="Help with a real call">🆘</button>
+        </div>
+        <form id="type-form" class="type-form" hidden>
+          <input id="type-input" maxlength="300" placeholder="Type what you'd say…" autocomplete="off">
+          <button class="chunky mini yellow">Say</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- HOW IT ENDED -->
+    <section id="s-end" class="screen" hidden>
+      <div class="end-flash" id="end-flash"></div>
+      <div class="end-stage">
+        <div class="end-dadi" data-dadi></div>
+        <div id="end-stamp" class="end-stamp"></div>
+        <p id="end-line" class="end-line"></p>
+      </div>
+      <div id="crack-stage" class="crack-stage" hidden>
+        <p class="crack-kicker">You did it. You got the OTP.</p>
+        <p class="crack-name">Kamla Sharma's savings</p>
+        <p id="crack-money" class="crack-money">₹14,20,000</p>
+        <p id="crack-text" class="crack-text"></p>
+      </div>
+    </section>
+
+    <!-- REPORT -->
+    <section id="s-report" class="screen scrolls" hidden>
+      <div class="report">
+        <div class="r-head">
+          <p class="r-mood" id="r-mood"></p>
+          <div class="rank" id="r-rank"></div>
+          <p class="r-rankline" id="r-rankline"></p>
+          <div class="otp small" id="r-otp"></div>
+          <p class="r-crack" id="r-crack"></p>
+        </div>
+
+        <div class="gags" id="r-gags"></div>
+
+        <button id="b-share" class="chunky yellow wide">Share my result</button>
+
+        <div class="panel lesson-panel">
+          <div class="lp-top">
+            <div class="lp-dadi" data-dadi></div>
+            <div>
+              <small>DADI'S LESSON</small>
+              <p id="r-lesson-title"></p>
+            </div>
+          </div>
+          <div id="r-lessons" class="lessons"></div>
+          <div class="rules">
+            <b>If this ever happens for real:</b>
+            <ol>
+              <li>Police never ask for an OTP or money on a call.</li>
+              <li>Hang up, then tell your family.</li>
+              <li>Report it: call <a href="tel:1930">1930</a> or visit <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="panel check" id="r-check">
+          <p><b>Last check:</b> Can police arrest someone over a video call?</p>
+          <div class="yn">
+            <button class="chunky mini teal" data-after="true">Yes</button>
+            <button class="chunky mini teal" data-after="false">No</button>
+          </div>
+          <p id="r-check-answer" class="check-answer" hidden></p>
+        </div>
+
+        <div class="panel parents">
+          <h3>Your parents won't play this game.</h3>
+          <p>So send them Dadi instead: a 20-second voice note in Hindi that tells them what to do.</p>
+          <button id="b-parents" class="chunky green wide">Send Dadi to my parents</button>
+          <button id="b-parents-play" class="linkish">▶ Hear it first</button>
+        </div>
+
+        <div class="panel replay">
+          <h3>You haven't met all of her.</h3>
+          <p id="r-tip"></p>
+          <p class="replay-next" id="r-next"></p>
+          <button id="b-again" class="chunky pink wide">Call her again</button>
+        </div>
+
+        <p class="credit">Prisma heard you. Timbre was Dadi. Built on <b>Gnani AI</b>.<br>A comedy game. All characters are fictional.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ALWAYS AVAILABLE: REAL HELP -->
+  <button id="b-sos" class="sos">🆘 Real scam call?</button>
+  <div id="sos-sheet" class="sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-label="Help with a real scam call">
+      <h2>Getting a call like this right now?</h2>
+      <ol>
+        <li><b>Hang up.</b> You are not in trouble. Police don't arrest people over a phone or video call.</li>
+        <li><b>Don't pay and don't share any OTP or PIN.</b></li>
+        <li><b>Tell someone you trust,</b> right now.</li>
+        <li><b>Lost money? Call 1930 immediately.</b> The sooner you call, the better the chance of stopping the transfer.</li>
+      </ol>
+      <a class="chunky pink wide" href="tel:1930">📞 Call 1930</a>
+      <a class="sheet-link" href="https://cybercrime.gov.in" target="_blank" rel="noopener">Report at cybercrime.gov.in</a>
+      <button id="b-sos-close" class="linkish">Back to the game</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
