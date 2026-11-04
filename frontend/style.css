@@ -122,7 +122,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .question { margin: 20px 0 8px; font-size: 28px; line-height: 36px; font-weight: 700; }
 #gloss { margin-bottom: 8px; }
 
-.mic-area { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0 20px; }
+.mic-area { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 12px 0 20px; }
+/* Reserves room for the ring at full size, so it never reaches nearby text. */
+.mic-stage { width: 128px; height: 128px; display: grid; place-items: center; }
 .mic {
   --level: 0;
   position: relative; width: 88px; height: 88px; border-radius: 50%;
@@ -132,7 +134,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* The ring follows the actual sound, so people can see they're being heard. */
 .mic::before {
   content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--live); opacity: 0;
-  transform: scale(calc(1 + var(--level) * 0.55));
+  transform: scale(calc(1 + var(--level) * 0.42));
+  transition: opacity 0.2s var(--ease);
+  will-change: transform;
 }
 .mic.live { background: var(--live); color: var(--live-text); }
 .mic.live::before { opacity: 0.25; }
@@ -154,4 +158,5 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
   .spinner { animation-duration: 3s; }
+  .mic::before { transform: scale(1.2); }
 }

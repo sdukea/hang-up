@@ -62,15 +62,34 @@ function setMic(text, mode = "wait") {
   if (mode !== "live") setLevel(0);
 }
 
+// The ring eases toward the latest sound level on each animation frame: quick
+// to rise and slow to fall, like a level meter, so it glides instead of jumping.
+const ring = { target: 0, value: 0, running: false };
+
 function setLevel(level) {
-  $("mic").style.setProperty("--level", level.toFixed(3));
+  ring.target = level;
+  if (ring.running) return;
+  ring.running = true;
+  requestAnimationFrame(animateRing);
+}
+
+function animateRing() {
+  ring.value += (ring.target - ring.value) * (ring.target > ring.value ? 0.16 : 0.06);
+  $("mic").style.setProperty("--level", ring.value.toFixed(3));
+  if (ring.target === 0 && ring.value < 0.002) {
+    ring.value = 0;
+    $("mic").style.setProperty("--level", "0");
+    ring.running = false;
+    return;
+  }
+  requestAnimationFrame(animateRing);
 }
 
 function meter(buffer) {
   const samples = new Int16Array(buffer);
   let sum = 0;
   for (const v of samples) sum += v * v;
-  setLevel(Math.min(1, (Math.sqrt(sum / samples.length) / 32768) * 7));
+  setLevel(Math.min(1, (Math.sqrt(sum / samples.length) / 32768) * 4.5));
 }
 
 // ---------- Choosing a language ----------
@@ -291,7 +310,7 @@ async function askQuestion() {
   renderSteps();
   $("question").textContent = q.text;
   $("question").lang = state.lang;
-  $("gloss").hidden = !state.sample;
+  $("gloss").hidden = !state.sample || state.lang === "en-IN";
   if (state.sample) $("gloss").textContent = state.gloss[state.index].text;
   clearAnswer();
 
