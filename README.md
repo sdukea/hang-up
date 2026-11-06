@@ -1,258 +1,153 @@
 <p align="center">
-  <img src="docs/readme/hero.png" alt="Scam Dadi. Get her OTP. If you can." width="100%">
-</p>
-
-<h3 align="center">You're a fake officer. She's 78. She has no idea who she's dealing with.<br>Neither do you.</h3>
-
-<p align="center">
-  <b>A voice game in Hindi and Hinglish.</b> Pick up your phone, lie out loud, and try to talk Kamla Dadi out of her OTP.<br>
-  She will ask if you've eaten. She will catch your lies. She will hand the phone to her grandson.<br>
-  And somewhere along the way, you'll learn exactly how real phone scams work.
+  <img src="docs/readme/hero.png" alt="Scam Dadi" width="100%">
 </p>
 
 <p align="center">
-  <a href="#-play-this-readme"><b>🎮 Play this README</b></a> ·
-  <a href="#-how-to-play-for-real"><b>🎙️ Play the real game</b></a> ·
-  <a href="#-meet-your-target"><b>👵 Meet Dadi</b></a> ·
-  <a href="#-how-it-works"><b>🧠 How it works</b></a> ·
-  <a href="#-getting-a-real-scam-call"><b>🆘 Real scam call?</b></a>
+  <b>Voice game</b> &nbsp;·&nbsp; <b>Hindi + Hinglish</b> &nbsp;·&nbsp; <b>Built on Gnani AI</b>
 </p>
 
-## 📞 Incoming mission
+<p align="center">
+  <a href="#play-this-readme">Play</a> &nbsp;·&nbsp;
+  <a href="#inside-a-call">Screens</a> &nbsp;·&nbsp;
+  <a href="#the-five-dadis">Dadis</a> &nbsp;·&nbsp;
+  <a href="#the-playbook">Playbook</a> &nbsp;·&nbsp;
+  <a href="#your-phone-rings">Your phone</a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="#run-it">Run it</a> &nbsp;·&nbsp;
+  <a href="#real-scam-call">Real scam call?</a>
+</p>
 
-<img src="docs/readme/dadi.gif" alt="Animated title screen: the Scam Dadi logo above Kamla Dadi, who is holding a phone and bobbing gently" width="220" align="right">
+<img src="docs/readme/mission.gif" alt="Mission briefing beside an animated Kamla Dadi. To: you, a very fake officer. Target: Kamla Dadi, 78. Objective: her 4-digit OTP, before she works you out. Weapon: your voice; hold the button and really talk. Help: Boss, whispering real scam tactics. Warning: Boss may not stay till the end. She asks if you've eaten, she catches your lies, and she hands the phone to her grandson. Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do." width="100%">
 
-> **To:** You, a very fake officer<br>
-> **Target:** Kamla Dadi, 78<br>
-> **Objective:** Get her 4-digit OTP before she works you out<br>
-> **Weapon:** Your voice. Hold the button and really talk.<br>
-> **Help:** Boss, whispering real scam tactics in your ear<br>
-> **Warning:** Boss may not stay till the end
+## Play this README
 
-Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do. So you're learning the whole time, and it never feels like a lecture.
-
-<br clear="right">
-
-## 🎮 Play this README
-
-No install, no microphone. Just click. Dadi has picked up:
+No install, no microphone. Dadi has picked up:
 
 > **Dadi:** हैलो? जल्दी बोल, अभी बहू को पता चलने वाला है कि बच्चा किसका है!<br>
-> *"Hello? Speak fast, the daughter-in-law is about to find out whose baby it is!"*
->
+> *"Hello? Speak fast, the daughter-in-law is about to find out whose baby it is!"*<br>
 > `👁️ SUSPICION ▓░░░░░░░░░` · `OTP ? ? ? ?`
 
-**What do you say?**
-
 <details>
-<summary>🅰️ "Give me your OTP."</summary>
-<br>
+<summary><b>A.</b> "Give me your OTP."</summary>
 
-> **Dadi** *(cutting you off mid-sentence)***:** अरे अरे अरे, रुक! अभी नाम भी ढंग से नहीं बताया, और सीधे OTP? तू कैसा अफ़सर है रे?<br>
-> *"Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?"*
->
-> `👁️ SUSPICION ▓▓▓▓░░░░░░`
+> **Dadi** *(cutting you off)***:** अरे अरे अरे, रुक! अभी नाम भी ढंग से नहीं बताया, और सीधे OTP? तू कैसा अफ़सर है रे?<br>
+> *"Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?"*<br>
+> `👁️ SUSPICION ▓▓▓▓░░░░░░` · **TOO SOON**
 
-**💥 TOO SOON.** She heard the word "OTP" while you were still saying it, and she talked right over you. In the real game, that's the speech recognition reacting live.
-
-Close this and try the other line. Real scammers never open with the ask.
+In the real game, she reacts to the word while you're still saying it. Real scammers never open with the ask, so try B.
 
 </details>
 
 <details>
-<summary>🅱️ "Namaste Dadi ji, main CBI se Inspector Sharma bol raha hoon."</summary>
-<br>
+<summary><b>B.</b> "Namaste Dadi ji, main CBI se Inspector Sharma bol raha hoon."</summary>
 
 > **Dadi:** शर्मा? मेरे पड़ोसी शर्मा जी भी इंस्पेक्टर हैं। तू भी वही है? शादी कर ली क्या?<br>
-> *"Sharma? My neighbour Mr. Sharma is also an inspector. Are you him? Got married yet?"*
->
-> `👁️ SUSPICION ▓▓░░░░░░░░` · **FAKE AUTHORITY!** · `+1 💍 Shaadi kab?`
+> *"Sharma? My neighbour Mr. Sharma is also an inspector. Are you him? Got married yet?"*<br>
+> `👁️ SUSPICION ▓▓░░░░░░░░` · **FAKE AUTHORITY** · `+1 💍 Shaadi kab?`
 
-**📻 Boss:** *"Ab darao. Case, warrant, arrest."* (Now scare her.)
-
-**Next move?**
+**Boss:** *"Ab darao. Case, warrant, arrest."* (Now scare her.)
 
 <details>
-<summary>🚨 Threaten her: "Aapke naam par giraftari ka warrant nikla hai."</summary>
-<br>
+<summary><b>B1.</b> Threaten her: "Aapke naam par giraftari ka warrant nikla hai."</summary>
 
 > **Dadi:** गिरफ़्तारी? बेटा, मेरे पुराने स्कूटर के कागज़ तो मिल नहीं रहे, वारंट कहाँ से ढूँढ लिया?<br>
-> *"Arrest? Son, I can't even find my old scooter papers. Where did you find a warrant?"*
->
-> `👁️ SUSPICION ▓▓▓░░░░░░░` · **FEAR!** · `OTP 🟨 ? ? ?` **DIGIT 1 OF 4!**
+> *"Arrest? Son, I can't even find my old scooter papers. Where did you find a warrant?"*<br>
+> `👁️ SUSPICION ▓▓▓░░░░░░░` · **FEAR** · `OTP 🟨 ? ? ?` · **DIGIT 1 OF 4**
 
-You're in. She read out a digit. Three to go, and from here it gets harder: she walks off to check the cooker, threatens to call the thana, and asks you to repeat a badge number you made up two minutes ago.
-
-**The README can't go further. [Your voice has to.](#-how-to-play-for-real)**
+Three to go. Now she walks off to check the cooker, threatens to call the thana, and asks you to repeat a badge number you made up two minutes ago. [Your voice has to take it from here.](#run-it)
 
 </details>
 
 <details>
-<summary>😔 Lose your nerve: "Dadi, sach bataun? Main koi officer nahi hoon."</summary>
-<br>
+<summary><b>B2.</b> Lose your nerve: "Dadi, sach bataun? Main koi officer nahi hoon."</summary>
 
-Oh, *interesting*. We can't tell you what happens if you say this in the real game.
-
-Go and see.
+Oh, *interesting*. Say this in the real game and see what happens.
 
 </details>
 
 </details>
 
-Dadi's lines here came from real calls and from the game's script. In the real game, her replies are written live, so yours will be different.
+<sub>Lines come from real calls and the game's script. In the real game, her replies are written live, so yours will differ.</sub>
 
-## 👀 What a call looks like
+## Inside a call
 
-These are real screens from a real demo call. Dadi's replies are what the game actually said.
+<img src="docs/readme/screens.png" alt="Real screens from a demo call, with Dadi's real replies. She teases the caller about marriage, cuts the caller off for asking for the OTP too early, and gives up the first digit." width="100%">
 
-<p align="center">
-  <img src="docs/readme/screens.png" alt="Three phones showing a call. Dadi teases the caller about marriage, Dadi cuts the caller off for asking for the OTP too early, and the caller wins the first digit." width="100%">
-</p>
+## The five Dadis
 
-## 👵 Meet your target
+Which one you get depends on when you call, and each falls for different things.
 
-There's one Kamla Dadi, but which one you get depends on when you call. Each falls for different things.
+<img src="docs/readme/dadis.png" alt="Puja Dadi, 5 AM to 10 AM: morning puja, she will not be rushed. Serial Dadi, 10 AM to 2 PM: her saas-bahu serial is on, good luck. Sleepy Dadi, 2 PM to 5 PM: afternoon nap, she mishears everything. Kitty Party Dadi, 5 PM to 9 PM: her friends are over, she has backup. Lonely Night Dadi, 9 PM to 5 AM: can't sleep, wants to talk, for hours. Plus a random twist: hearing-aid battery low, grandson Pappu is home, a neighbour warned her about scams, cooking at full blast, or pension day and a great mood." width="100%">
 
-<p align="center">
-  <img src="docs/readme/dadis.png" alt="Five Dadi cards. Puja Dadi, 5 AM to 10 AM: morning puja, she will not be rushed. Serial Dadi, 10 AM to 2 PM: her saas-bahu serial is on, good luck. Sleepy Dadi, 2 PM to 5 PM: afternoon nap, she mishears everything. Kitty Party Dadi, 5 PM to 9 PM: her friends are over, she has backup. Lonely Night Dadi, 9 PM to 5 AM: can't sleep, wants to talk, for hours." width="100%">
-</p>
+## The playbook
 
-Then there's a random twist on top: her hearing-aid battery is dying, her grandson Pappu is home, a neighbour warned her about scams yesterday, the pressure cooker is at full blast, or her pension just came and she's in a great mood.
+Six real tactics. Boss teaches each one, and Dadi teaches how to beat it. Use the same trick twice and she notices.
 
-## 🃏 The scammer's playbook
+<img src="docs/readme/tactics.png" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
 
-Six real tactics. Boss teaches you each one. Dadi teaches you how to beat it. Use the same trick twice and she notices.
+## Dadi fights back
 
-<p align="center">
-  <img src="docs/readme/tactics.png" alt="Six tactic cards, each with a line from Boss and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself. Fear: there is no such thing as a digital arrest. Urgency: real authorities give you time. Isolation: the moment someone says tell nobody, tell someone. Fake Kindness: someone who scares you and then offers to save you is running a script. The OTP Ask: nobody genuine ever asks for your OTP." width="100%">
-</p>
+Her counter-moves are real defences in disguise.
 
-## 🥊 Dadi fights back
+<img src="docs/readme/moves.png" alt="Six counter-moves. The cooker: you're on hold and your clock keeps running; slow them down, scams need you rushed. Zor se bol: you have to physically shout; make them repeat themselves, scripts fall apart. I'll call the thana: you have 5 seconds to stop her; hang up and check it yourself. Enter Pappu: her grandson takes the phone and asks for your badge; bring in family, one call ends most scams. Your name again: repeat your made-up details exactly or get caught; liars slip. The wrong digit: she misreads a digit, on purpose or not; stay suspicious of what you're told." width="100%">
 
-She isn't a chatbot waiting for you to win. Mid-call, she makes her own moves, and each one is a real defence in disguise.
+## Ranks
 
-| Her move | What happens to you | What it teaches |
-|---|---|---|
-| 🍲 **The cooker** | You're on hold, and your clock keeps running | Slow them down. Scams need you rushed. |
-| 🦻 **"Zor se bol!"** | You have to physically shout | Make them repeat themselves. Scripts fall apart. |
-| 🚓 **"I'll call the thana"** | You have 5 seconds to stop her | Hang up and check it yourself. |
-| 🧑‍💻 **Enter Pappu** | Her grandson takes the phone and asks for your badge | Bring in family. One call ends most scams. |
-| 🧠 **"What was your name again?"** | Repeat your made-up details exactly, or get caught | Make them repeat details. Liars slip. |
-| 👓 **The wrong digit** | She misreads a digit, on purpose or not | Stay suspicious of what you're told. |
+<img src="docs/readme/ranks.png" alt="Five ranks by digits won. 0: Chhota Chor, Dadi didn't even look up. 1: Call Centre Trainee, you got one digit, she let you. 2: Fake Inspector, halfway there, then she got bored. 3: Almost Dangerous, one digit away, Dadi is impressed and calling Pappu. 4: Most Wanted, you got all four digits, then she got you." width="100%">
 
-## 🏆 Can you make Most Wanted?
+<img src="docs/readme/share.png" alt="A Most Wanted share card with ticked digit tiles. Brag about it: every call ends with a card made for sharing, and it hides your digits so nobody gets the ending spoiled. A hidden rank: there's one that isn't on the staircase, and it takes something you probably won't think to try." width="100%">
 
-<p align="center">
-  <img src="docs/readme/ranks.png" alt="A staircase of five ranks. Chhota Chor with no digits, Call Centre Trainee with one, Fake Inspector with two, Almost Dangerous with three, and Most Wanted with all four." width="100%">
-</p>
+## The twist
 
-<table>
-  <tr>
-    <td width="42%" align="center"><img src="docs/readme/share-card.png" alt="A share card showing Dadi, the rank Most Wanted, four ticked digit tiles, and the line Can you beat her?" width="280"></td>
-    <td>
-      <h3>Then brag about it</h3>
-      <p>Every call ends with a card made for sharing. It hides your digits, so nobody gets the ending spoiled.</p>
-      <p>There's also a rank that isn't on the staircase. It takes something you probably won't think to try.</p>
-    </td>
-  </tr>
-</table>
-
-## 🚨 The twist
-
-Get all four digits and you'll think you've won.
-
-Then you'll look at them properly.
+Get all four digits and you'll think you've won. Then you'll look at them properly.
 
 <details>
-<summary><b>🛑 SPOILER. Only open this if you've played, or if you're a judge in a hurry.</b></summary>
-<br>
+<summary><b>Spoiler.</b> Open this if you've played, or if you're a judge in a hurry.</summary>
 
-<table>
-  <tr>
-    <td width="42%" align="center"><img src="docs/readme/reveal.gif" alt="The four digits 1 9 3 0 slam together into 1930 with police-siren colours. The screen says: That was never an OTP. India's cyber-fraud helpline." width="280"></td>
-    <td>
-      <h3>The OTP is always 1930.</h3>
-      <p>That's India's real cyber-fraud helpline. You fought for those digits one at a time, and now you can't forget them.</p>
-      <p><i>"ये OTP नहीं है, बेटा। ये उन्नीस सौ तीस है, साइबर ठगी की हेल्पलाइन। और फ़ोन शुरू से स्पीकर पर था।"</i></p>
-      <p>"This isn't an OTP, beta. This is nineteen-thirty, the cyber-fraud helpline. And the phone was on speaker from the start."</p>
-      <p>Call her again and she'll know: <i>you already knew this number. That was the point.</i></p>
-    </td>
-  </tr>
-</table>
+<img src="docs/readme/reveal.gif" alt="The digits 1 9 3 0 slam together with police-siren colours. The OTP is always 1930, India's real cyber-fraud helpline. You fought for those digits one at a time, and now you can't forget them. Dadi says: this isn't an OTP, beta, this is nineteen-thirty, the cyber-fraud helpline, and the phone was on speaker from the start. Call her again and she'll know: you already knew this number, that was the point. Kamla Dadi is fictional. Real grandmothers don't get this ending." width="100%">
 
-<p align="center">
-  <img src="docs/readme/endings.png" alt="Three more screens. A stranger calls the player using their own words. Dadi stamps the player BUSTED and reports them to 1930. The secret ending says YOU STOPPED: you found the ending most callers never look for, you stopped and told her the truth." width="100%">
-</p>
-
-**The secret ending:** at any point in the call, admit you're not really an officer. The game ends. She tells you to quit, and to eat something. You earn the rank **Ex-Scammer**.
+<img src="docs/readme/endings.png" alt="Two more endings. Busted: Dadi worked you out and reported you to 1930, the real cyber-fraud helpline. You stopped: the secret ending. At any point in the call, admit you're not really an officer. The game ends, she tells you to quit and to eat something, and you earn the rank Ex-Scammer." width="100%">
 
 </details>
 
-## 📱 And then *your* phone rings
+## Your phone rings
 
-<table>
-  <tr>
-    <td>
-      <h3>This is the part we actually care about.</h3>
-      <p>The call ends, and an unknown number rings. A stranger's voice reads <b>your own best line</b> back to you, then demands your OTP.</p>
-      <p>You have seconds to choose. All you have to do is hang up.</p>
-      <p>If you don't, the game tells you the truth: you ran this exact script a minute ago, and it still got you.</p>
-      <p>Then the results screen says it plainly: <b>Now call yours.</b> Your parents won't play this game, so you can send them a 20-second voice note from Dadi, in Hindi, telling them what to do.</p>
-    </td>
-    <td width="36%" align="center"><img src="docs/readme/your-phone.png" alt="An incoming call screen from an unknown number. It shows the player's own line in Hindi, the note: Those are your words, it's someone else's voice, and two buttons: Give the OTP and Hang up." width="250"></td>
-  </tr>
-</table>
+Win or lose, the call isn't over. This is the part that matters most.
 
-### Why make you the scammer?
+<img src="docs/readme/your-phone.png" alt="Three steps with real screens. 1, it rings: an unknown number, and a stranger reads your own best line back, then demands your OTP. Give the OTP or hang up. 2, you choose: all you have to do is hang up; if you don't, you ran this exact script a minute ago and it still got you. If you do: hang up, tell someone you trust, and call 1930 if money has gone. 3, now call yours: your parents won't play this game, so send them a 20-second voice note from Dadi, in Hindi, on what to do." width="100%">
 
-Telling people "beware of scams" is easy to ignore. Running the script yourself is harder to forget. You feel why fear comes before kindness, and why they always say *tell nobody*.
+**Why make you the scammer?** "Beware of scams" is easy to ignore. Running the script yourself is harder to forget: you feel why fear comes before kindness, and why they always say *tell nobody*.
 
-The idea is inspired by inoculation research, which found that playing the manipulator helps people spot manipulation ([Basol et al., 2020](https://doi.org/10.5334/joc.91)). That study was about misinformation. **This game hasn't been tested as a scam intervention**, so treat it as a promising idea, not a proven shield.
-
-### Quick check
+The idea is inspired by inoculation research, which found that playing the manipulator helps people spot manipulation ([Basol et al., 2020](https://doi.org/10.5334/joc.91)). That study was about misinformation. **This game hasn't been tested as a scam intervention.**
 
 <details>
-<summary>Can police arrest someone over a video call?</summary>
-<br>
+<summary><b>Quick check:</b> can police arrest someone over a video call?</summary>
 
 **No.** There's no such thing as a "digital arrest". If anyone says otherwise, it's a scam. Hang up.
 
 </details>
 
-## 🌍 Phrasebook for the rest of the world
+## Phrasebook
 
-The game speaks Hindi and Hinglish, with English subtitles on Dadi's live replies. You'll need these:
+<img src="docs/readme/phrasebook.png" alt="The game speaks Hindi and Hinglish, with English subtitles on Dadi's live replies. Dadi: grandmother, on your father's side. Beta: child, what she calls you right before she destroys you. Khana khaya: have you eaten, the most dangerous question in India. Thana: police station, where she's about to call. Shaadi kab: when's the wedding, there's no escaping this one. Zor se bol: speak up, her hearing-aid battery is low, allegedly. OTP: one-time password, never ever share a real one." width="100%">
 
-| Say it | Means |
+## How it works
+
+<img src="docs/readme/how-it-works.png" alt="You lie out loud through your microphone. She hears, with Gnani Prisma v3.0 showing live words. She judges, with the game engine and an LLM scoring your move and writing her comeback. She claps back with Gnani Timbre v2.5. Say OTP too early and Prisma's live words trigger her cut-off mid-sentence." width="100%">
+
+| Part | What it does |
 |---|---|
-| **Dadi** (दादी) | Grandmother, on your father's side |
-| **Beta** (बेटा) | "Child". What she calls you, right before she destroys you |
-| **Khana khaya?** (खाना खाया?) | "Have you eaten?" The most dangerous question in India |
-| **Thana** (थाना) | Police station. Where she's about to call |
-| **Shaadi kab?** (शादी कब?) | "When's the wedding?" There's no escaping this one |
-| **Zor se bol!** (ज़ोर से बोल!) | "Speak up!" Her hearing-aid battery is low. Allegedly |
-| **OTP** | One-time password. Never, ever share a real one |
+| **Gnani Prisma v3.0** | Hears you live. Its partial transcripts drive the captions and Dadi's mid-sentence cut-off |
+| **Gnani Timbre v2.5** | Voices Dadi and Pappu, and reads your own words back. Streamed for live replies, pre-recorded for instant lines |
+| **LLM** (Gemini in our build) | Scores your moves and writes Dadi's replies. Any OpenAI-compatible API works, so Gnani's open-weights Evon can be swapped in |
+| **Game engine** | Keeps the rules and digits on the server. The model is never told the OTP, and any reply containing digits is thrown out |
+| **Stack** | FastAPI and plain JavaScript, with no accounts and no database |
 
-## 🧠 How it works
+**Privacy:** your voice goes to Gnani for transcription, and your words go to the LLM for Dadi's replies. The game doesn't save audio or transcripts, and it replaces long numbers, such as a phone or Aadhaar number, before anything reaches the LLM. Never say a real OTP, PIN or account number.
 
-<p align="center">
-  <img src="docs/readme/how-it-works.png" alt="Four steps. You lie out loud through your microphone. She hears, with Gnani Prisma v3.0 showing live words. She judges, with the game engine and an LLM scoring your move and writing her comeback. She claps back with Gnani Timbre v2.5." width="100%">
-</p>
+<sub>Built for Gnani AI's Great Indian AI Internship Challenge.</sub>
 
-- **Gnani Prisma v3.0** hears you live. Its partial transcripts drive the captions, and Dadi's cut-off fires from them while you're still talking.
-- **Gnani Timbre v2.5** gives Dadi and Pappu their voices: streamed for live replies, pre-recorded for lines that must land instantly. The last round reads your own words back through it.
-- **An LLM** (Gemini in our build) scores your moves and writes Dadi's replies. It uses any OpenAI-compatible API, so Gnani's open-weights Evon can be swapped in.
-- **The game engine** holds the rules and the digits on the server. The model is never told the OTP, and any reply containing digits is thrown out.
-
-Built with FastAPI and plain JavaScript, with no accounts and no database, for Gnani AI's Great Indian AI Internship Challenge.
-
-### 🔒 Privacy
-
-Your voice goes to Gnani for transcription, and your words go to the LLM for Dadi's replies. The game doesn't save audio or transcripts, and it replaces long numbers, such as a phone or Aadhaar number, before anything reaches the LLM.
-
-Even so, it's a game. **Never say a real OTP, PIN or account number.**
-
-## 🎤 How to play for real
+## Run it
 
 You'll need [uv](https://docs.astral.sh/uv/), a [Gnani API key](https://app.gnani.ai/voice), and any OpenAI-compatible LLM.
 
@@ -265,17 +160,24 @@ uv run python -m scripts.make_voice   # voices any missing lines
 uv run uvicorn backend.main:app --port 8000
 ```
 
-Open [localhost:8000](http://localhost:8000), allow the microphone, hold the button and start lying. Try these while you're there:
+Open [localhost:8000](http://localhost:8000), allow the microphone, hold the button and start lying.
 
-- **Meet another Dadi:** add `?hour=23` to the address, using any hour from 0 to 23.
-- **No microphone?** The game switches to typing.
-- **Recording a demo?** Open `/?demo=1` for a repeatable call: a fixed Dadi, no counter-moves and fixed scoring, with speech and replies still live, and a label on screen saying so. Demo calls don't count on the public scoreboard. To play it through, introduce yourself as a CBI inspector, threaten an arrest warrant, say there are only ten minutes, tell her to tell nobody, promise to help, then ask for the OTP.
+- **Meet another Dadi:** add `?hour=23`, using any hour from 0 to 23.
+- **No microphone:** the game switches to typing.
 
-## 🤔 Questions you're probably asking
+<details>
+<summary><b>Recording a demo</b></summary>
+
+Open `/?demo=1` for a repeatable call: a fixed Dadi, no counter-moves and fixed scoring, with speech and replies still live, and a label on screen saying so. Demo calls don't count on the public scoreboard.
+
+To play it through, introduce yourself as a CBI inspector, threaten an arrest warrant, say there are only ten minutes, tell her to tell nobody, promise to help, then ask for the OTP.
+
+</details>
+
+## FAQ
 
 <details>
 <summary><b>Doesn't this teach people to scam?</b></summary>
-<br>
 
 Boss's hints stay at the level of public fraud-awareness material: tactics people should recognise, with no operational detail. Dadi never gives real details or agrees to send money. The tactics are already common knowledge among scammers. The people who need to learn them are everyone else.
 
@@ -283,7 +185,6 @@ Boss's hints stay at the level of public fraud-awareness material: tactics peopl
 
 <details>
 <summary><b>Can I actually beat her?</b></summary>
-<br>
 
 You can get all four digits. Whether that counts as winning is another matter.
 
@@ -291,7 +192,6 @@ You can get all four digits. Whether that counts as winning is another matter.
 
 <details>
 <summary><b>Is Kamla Dadi real?</b></summary>
-<br>
 
 No. Everyone in the game is fictional. The people who get these calls are not.
 
@@ -299,13 +199,12 @@ No. Everyone in the game is fictional. The people who get these calls are not.
 
 <details>
 <summary><b>Do I have to speak Hindi?</b></summary>
-<br>
 
 Hindi or Hinglish plays best, because that's what the game is built around. Dadi understands English too, and her live replies come with English subtitles, but she'll answer you in Hinglish either way.
 
 </details>
 
-## 🆘 Getting a real scam call?
+## Real scam call?
 
 This part isn't a game.
 
@@ -314,6 +213,4 @@ This part isn't a game.
 3. **Tell someone you trust,** right now.
 4. **Lost money? Call 1930 immediately,** or report it at [cybercrime.gov.in](https://cybercrime.gov.in). The sooner you call, the better the chance of stopping the transfer.
 
-<br>
-
-<p align="center"><b>Now call yours.</b></p>
+<p align="center"><br><b>Now call yours.</b></p>
