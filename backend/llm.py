@@ -21,8 +21,7 @@ class LLMError(RuntimeError):
     pass
 
 
-# Busy or rate-limited: worth retrying, then trying the fallback model.
-RETRYABLE = {429, 500, 502, 503, 504}
+HEDGE_SECONDS = 3.0
 
 
 async def _post(client: httpx.AsyncClient, model: str, system: str, user: str, temperature: float) -> httpx.Response:
@@ -45,28 +44,37 @@ async def complete_json(system: str, user: str, temperature: float = 0.2) -> dic
     if not config.LLM_BASE_URL or not config.LLM_MODEL:
         raise LLMError("LLM is not configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.")
 
-    # Live game: try the main model, then the fallback, without waiting around.
-    attempts = [(config.LLM_MODEL, 0), (config.LLM_FALLBACK_MODEL or config.LLM_MODEL, 0.5)]
-
-    resp = None
     async with httpx.AsyncClient(timeout=7) as client:
-        for model, pause in attempts:
-            await asyncio.sleep(pause)
-            try:
-                resp = await _post(client, model, system, user, temperature)
-            except httpx.HTTPError as e:
-                log.warning("LLM %s unreachable: %s", model, e.__class__.__name__)
-                continue
-            if resp.status_code == 200:
-                break
-            if resp.status_code not in RETRYABLE:
-                raise LLMError(f"LLM request failed ({resp.status_code}): {resp.text[:300]}")
-            log.warning("LLM %s busy (%s), retrying", model, resp.status_code)
+        main = asyncio.create_task(_attempt(client, config.LLM_MODEL, system, user, temperature))
+        tasks = [main]
+        if config.LLM_FALLBACK_MODEL and config.LLM_FALLBACK_MODEL != config.LLM_MODEL:
+            tasks.append(asyncio.create_task(_backup(main, client, system, user, temperature)))
+        try:
+            error = None
+            for finished in asyncio.as_completed(tasks):
+                try:
+                    return await finished
+                except LLMError as e:
+                    error = e
+            raise error
+        finally:
+            for task in tasks:
+                task.cancel()
 
-    if resp is None:
-        raise LLMError("Could not reach the LLM.")
+
+async def _backup(main: asyncio.Task, client: httpx.AsyncClient, system: str, user: str, temperature: float) -> dict:
+    """Live game: start the fallback if the main model fails or is slow. The first answer wins."""
+    await asyncio.wait({main}, timeout=HEDGE_SECONDS)
+    return await _attempt(client, config.LLM_FALLBACK_MODEL, system, user, temperature)
+
+
+async def _attempt(client: httpx.AsyncClient, model: str, system: str, user: str, temperature: float) -> dict:
+    try:
+        resp = await _post(client, model, system, user, temperature)
+    except httpx.HTTPError as e:
+        raise LLMError(f"LLM {model} unreachable: {e.__class__.__name__}") from e
     if resp.status_code != 200:
-        raise LLMError(f"LLM is busy right now ({resp.status_code}). Please try again in a minute.")
+        raise LLMError(f"LLM {model} failed ({resp.status_code}): {resp.text[:300]}")
     try:
         content = resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, ValueError) as e:

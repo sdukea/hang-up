@@ -1,6 +1,9 @@
-"""Gnani Timbre text-to-speech (REST)."""
+"""Gnani Timbre text-to-speech: REST for saved lines, SSE for live replies."""
 
 import asyncio
+import base64
+import json
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -53,3 +56,31 @@ async def synthesize(
     if resp.status_code != 200:
         raise TTSError(f"TTS failed ({resp.status_code}): {resp.text[:300]}")
     return resp.content
+
+
+async def stream(
+    text: str,
+    language: str = "hi-IN",
+    voice: str = config.TTS_VOICE,
+    model: str = config.TTS_MODEL,
+    speed: float = 1.0,
+) -> AsyncIterator[bytes]:
+    """Yield MP3 frames as Timbre makes them, so a reply starts in well under a second."""
+    payload = {
+        "text": text, "voice": voice, "model": model, "language": language, "speed": speed,
+        "audio_config": {"sample_rate": 24000, "num_channels": 1, "sample_width": 2, "container": "mp3", "bitrate": "64k"},
+    }
+    headers = {"X-API-Key-ID": config.require_key(), "Content-Type": "application/json"}
+    try:
+        async with _one_at_a_time, httpx.AsyncClient(timeout=30) as client:
+            async with client.stream("POST", config.TTS_SSE_URL, json=payload, headers=headers) as resp:
+                if resp.status_code != 200:
+                    raise TTSError(f"TTS failed ({resp.status_code})")
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    chunk = json.loads(line[5:]).get("audio")
+                    if chunk:
+                        yield base64.b64decode(chunk)
+    except (httpx.HTTPError, ValueError) as e:
+        raise TTSError(f"Could not stream Timbre: {e.__class__.__name__}") from e

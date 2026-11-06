@@ -11,6 +11,9 @@ const post = (url, body) => fetch(url, {
 });
 
 const SHOUT_LEVEL = 0.32;      // how loud "louder!" means, on the 0-1 meter
+const OTP_WORD = /o\s*t\s*p\b|ओ\s*टी\s*पी/i;
+// Safari replays media requests and needs byte ranges, so it waits for the whole reply.
+const STREAMS_AUDIO = !/iP(hone|ad|od)|^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const COUNTER_NOTES = {
   hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta."],
   shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
@@ -52,6 +55,8 @@ const state = {
   idleCount: 0,
   gags: {},
   usedFillers: [],
+  storyBuilt: false,    // she'll hear an OTP ask without cutting in
+  cutoffs: 0,
   speechRun: 0,         // lets a press interrupt whatever Dadi is saying
   report: null,
 };
@@ -127,7 +132,6 @@ const sfx = {
   siren() { for (let i = 0; i < 5; i++) tone(650, 0.45, { type: "sawtooth", slide: 400, at: i * 0.5, gain: 0.05 }); },
   whistle() { tone(1900, 1.4, { type: "sawtooth", gain: 0.025, slide: 150 }); },
   holdMusic() { [392, 440, 494, 440, 392, 330, 392, 440].forEach((f, i) => tone(f, 0.32, { type: "triangle", at: i * 0.36, gain: 0.05 })); },
-  drain() { for (let i = 0; i < 14; i++) tone(1200 - i * 70, 0.09, { at: i * 0.11, gain: 0.04 }); },
 };
 
 function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -321,6 +325,7 @@ function openListener() {
     if (event.type === "partial_transcript") {
       state.partial = event.text || "";
       $("you-said").textContent = state.partial;
+      if (state.holding && !state.storyBuilt && OTP_WORD.test(state.partial)) cutOff(state.partial);
     }
     if (event.type === "transcript" || event.type === "final_transcript") {
       state.pendingSegments = Math.max(0, state.pendingSegments - 1);
@@ -348,7 +353,8 @@ async function beginCall() {
   let data;
   try {
     const resp = await post("/api/game/start", {
-      hour: forcedHour() ?? new Date().getHours(),
+      hour: forcedHour() ?? (demoMode() ? 11 : new Date().getHours()),
+      demo: demoMode(),
       returning_name: returning,
       quiz: state.quizBefore,
     });
@@ -362,7 +368,7 @@ async function beginCall() {
   Object.assign(state, {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
-    finals: [], partial: "", idleCount: 0, gags: {}, report: null,
+    finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0,
   });
   buildCallScreen(data, hasMic);
 
@@ -402,6 +408,7 @@ function buildCallScreen(data, hasMic) {
   $("pappu").hidden = true;
   $("away").hidden = true;
   $("dadi-slot").className = "dadi-slot";
+  $("demo-tag").hidden = !data.demo;
   $("type-form").hidden = hasMic;
   updateTalk();
 }
@@ -494,6 +501,37 @@ async function collectSpeech() {
   return text;
 }
 
+// She hears "OTP" in Prisma's live words, before the player has built a story,
+// and talks right over them. Pre-recorded, so it lands while they're mid-sentence.
+async function cutOff(said) {
+  state.holding = false;
+  state.busy = true;
+  state.speechRun++;
+  $("b-talk").classList.remove("down");
+  $("b-talk").style.setProperty("--level", "0");
+  if (state.ws && state.ws.readyState === WebSocket.OPEN) state.ws.send("flush");
+  const game = state.game;
+  const judged = post(`/api/game/${game.id}/cutoff`, { said })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  pop("DADI CUT YOU OFF", "You asked before building a story", "bad");
+  sfx.bad();
+  jolt();
+  const line = say(clip(`cutoff_${state.cutoffs++ % 3}`));
+  const result = await judged;
+  if (result) {
+    setSuspicion(result.suspicion);
+    setBoss(result.boss);
+  }
+  await line;
+  state.busy = false;
+  state.finals = [];
+  state.partial = "";
+  state.idleAt = Date.now() + 15000;
+  updateTalk();
+  if (result && result.outcome) await endCall(result.outcome);
+}
+
 async function handleSaid(text, peak, typed = false) {
   state.idleAt = Date.now() + 16000;
   if (!text) {
@@ -537,14 +575,16 @@ async function playTurn(text) {
     $("pappu").hidden = true;
   }
   const reacting = say(clip(firstClip));
-  let result = null;
-  try {
-    const resp = await post(`/api/game/${game.id}/turn`, { said: text });
-    if (resp.ok) result = await resp.json();
-  } catch (err) {
-    console.warn(err);
-  }
+  let answered = false;
+  const reply = post(`/api/game/${game.id}/turn`, { said: text })
+    .then((resp) => (resp.ok ? resp.json() : null))
+    .catch((err) => { console.warn(err); return null; })
+    .finally(() => { answered = true; });
   await reacting;
+  // Still thinking? A second mumble beats dead air.
+  await Promise.race([reply, sleep(1000)]);
+  if (!answered) await say(clip(pickFiller()));
+  const result = await reply;
   state.busy = false;
   if (state.over) return;
   if (!result) {
@@ -553,9 +593,12 @@ async function playTurn(text) {
   }
   if (run === state.speechRun || !state.speaking) showMoveResult(result);
   if (stale()) return;
+  state.storyBuilt = result.story_built;
 
   bubble(result.reply);
-  if (result.speech) {
+  if (result.speech && (STREAMS_AUDIO || result.canned !== null)) {
+    await say(result.speech);
+  } else if (result.speech) {
     const speechReady = await fetch(result.speech).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
     if (stale()) return;
     if (speechReady) await say(URL.createObjectURL(speechReady));
@@ -814,26 +857,30 @@ async function normalEnding(outcome) {
   await sleep(1000);
 }
 
-// If you win, it stops being funny. That's the point.
+// The digits you fought for were never an OTP. They're the number she was calling.
 async function crackedEnding() {
   document.querySelector(".end-stage").hidden = true;
   $("crack-stage").hidden = false;
+  $("crack-kicker").textContent = "You did it. You got the OTP.";
+  $("crack-number").classList.remove("merged");
+  $("crack-name").textContent = "";
   $("crack-text").textContent = "";
-  await say(clip("cracked"));
+  sfx.good();
+  await sleep(1100);
+  await say(clip("reveal_setup"));
+  await sleep(400);
+  $("crack-kicker").textContent = "That was never an OTP.";
+  $("crack-number").classList.add("merged");
+  $("crack-name").textContent = "India's cyber-fraud helpline";
+  $("end-flash").classList.add("siren");
+  sfx.siren();
+  jolt();
+  await say(clip("reveal_1930"));
   await sleep(700);
-  const money = $("crack-money");
-  sfx.drain();
-  const total = 1420000;
-  for (let i = 1; i <= 30; i++) {
-    money.textContent = `₹${Math.round(total * (1 - i / 30)).toLocaleString("en-IN")}`;
-    await sleep(50);
-  }
-  money.classList.add("zero");
-  await sleep(900);
-  $("crack-text").textContent = "Kamla Dadi is fictional. The people who lose everything this way are not.";
-  await sleep(2600);
-  $("crack-text").textContent = "Real grandmothers lose everything to these exact tricks, and they have no AI defending them.";
-  await sleep(3400);
+  $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
+  await sleep(2800);
+  $("crack-text").textContent = "So make sure yours know the number.";
+  await sleep(2400);
 }
 
 // ---------- The report: a lesson in disguise ----------
@@ -845,7 +892,7 @@ function showReport() {
   $("r-mood").textContent = `${r.mood} · ${r.twist}`;
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
-  $("r-crack").textContent = !r.crack_rate ? "Nobody has cracked her yet." : `Only ${r.crack_rate}% of callers have ever cracked her.`;
+  $("r-crack").textContent = state.game.demo ? "" : !r.crack_rate ? "Nobody has got all four digits yet." : `Only ${r.crack_rate}% of callers ever get all four digits.`;
 
   $("r-otp").replaceChildren(...[0, 1, 2, 3].map((i) => {
     const slot = document.createElement("div");
@@ -936,7 +983,7 @@ const SITE = location.origin;
 function shareText() {
   const r = state.report;
   const line = r.outcome === "cracked"
-    ? `I cracked Kamla Dadi's OTP on Scam Dadi. Only ${r.crack_rate}% ever have.`
+    ? `I got all 4 digits of Kamla Dadi's OTP on Scam Dadi. Then she got me.`
     : `I tried to scam ${r.mood} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
   return `${line} Try it, and learn how the real scam works: ${SITE}`;
 }
@@ -1017,7 +1064,7 @@ async function drawCard() {
     g.font = "76px Bungee";
     g.textAlign = "center";
     g.fillStyle = got ? "#1b0b2e" : "#8f77b5";
-    g.fillText(got ? (r.otp ? r.otp[i] : "✓") : "?", x + tile / 2, 932);
+    g.fillText(got ? "✓" : "?", x + tile / 2, 932);  // never spoil the ending
   }
 
   g.textAlign = "center";
@@ -1027,7 +1074,7 @@ async function drawCard() {
   g.fillText(r.mood, 540, 1055);
   g.font = "700 40px 'Baloo 2'";
   if (top) g.fillText(`${GAG_LABELS[top[0]].replace(/^\S+\s/, "")} × ${top[1]}`, 540, 1112);
-  outlined(r.outcome === "cracked" ? "I CRACKED HER" : "CAN YOU BEAT HER?", 540, 1205, 64, "#ffffff", "#ff2e7e");
+  outlined("CAN YOU BEAT HER?", 540, 1205, 64, "#ffffff", "#ff2e7e");
   g.fillStyle = "#fff3d6";
   g.font = "700 36px 'Baloo 2'";
   g.fillText(`${SITE.replace(/^https?:\/\//, "")}  ·  Real scam? Call 1930`, 540, 1290);
@@ -1099,6 +1146,11 @@ $("b-sos-close").addEventListener("click", () => { $("sos-sheet").hidden = true;
 function forcedHour() {
   const h = new URLSearchParams(location.search).get("hour");
   return h !== null && Number(h) >= 0 && Number(h) <= 23 ? Number(h) : null;
+}
+
+// ?demo=1 plays the same call every time, for recording. Speech and replies stay live.
+function demoMode() {
+  return new URLSearchParams(location.search).get("demo") === "1";
 }
 
 function safeGet(key) {

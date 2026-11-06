@@ -12,6 +12,7 @@ import time
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -108,6 +109,7 @@ class Start(BaseModel):
     hour: int = Field(ge=0, le=23)
     returning_name: str | None = Field(default=None, max_length=40)
     quiz: bool | None = None
+    demo: bool = False
 
 
 @app.post("/api/game/start")
@@ -122,18 +124,19 @@ async def start_game(body: Start, request: Request):
         raise HTTPException(status_code=429, detail="Dadi has gone for her nap. Try again in a while.")
     hits.append(now)
 
-    g = game.Game(body.hour, body.returning_name)
+    g = game.Game(body.hour, None if body.demo else body.returning_name, demo=body.demo)
     games[g.id] = g
-    if body.quiz is not None:
+    if body.quiz is not None and not g.demo:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
         stats["quiz_before"][1] += 1
         _stats_dirty = True
-    greet = "greet_back" if body.returning_name else f"greet_{g.mood_key}_{random.randrange(2)}"
+    greet = "greet_back" if g.returning_name else f"greet_{g.mood_key}_{0 if g.demo else random.randrange(2)}"
     return {
         "id": g.id, "seconds": game.GAME_SECONDS, "mood": g.mood_key, "mood_name": g.mood["name"],
         "tagline": g.mood["tagline"], "twist": g.twist["label"], "greet": greet,
         "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
+        "story_built": g.story_built, "demo": g.demo,
     }
 
 
@@ -162,12 +165,34 @@ async def spoken_reply(token: str):
     item = speech.pop(token, None)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
+    audio = tts.stream(item[0], "hi-IN", voice=config.DADI_VOICE, model=config.TTS_MODEL, speed=config.DADI_SPEED)
     try:
-        audio = await tts.synthesize(item[0], "hi-IN", voice=config.DADI_VOICE, model=config.TTS_MODEL, speed=config.DADI_SPEED)
-    except (tts.TTSError, RuntimeError) as e:
+        first = await anext(audio)
+    except (tts.TTSError, RuntimeError, StopAsyncIteration) as e:
         log.warning("Speech failed: %s", e)
         raise HTTPException(status_code=502, detail="Dadi lost her voice")
-    return Response(content=audio, media_type="audio/mpeg")
+
+    async def rest():
+        yield first
+        try:
+            async for chunk in audio:
+                yield chunk
+        except tts.TTSError as e:
+            log.warning("Speech stopped early: %s", e)
+
+    return StreamingResponse(rest(), media_type="audio/mpeg")
+
+
+class CutOff(BaseModel):
+    said: str = Field(min_length=1, max_length=600)
+
+
+@app.post("/api/game/{game_id}/cutoff")
+async def cut_off(game_id: str, body: CutOff):
+    result = _get_game(game_id).cut_off(body.said)
+    if result is None:
+        raise HTTPException(status_code=409, detail="No reason to interrupt.")
+    return result
 
 
 class Counter(BaseModel):
@@ -191,7 +216,7 @@ async def end_game(game_id: str):
         g.finish_state(_seconds_left(g))
     first_report = not getattr(g, "reported", False)
     report = g.report()
-    if first_report:
+    if first_report and not g.demo:
         g.reported = True
         stats["plays"] += 1
         stats["seconds"] += min(game.GAME_SECONDS, int(time.time() - g.started))

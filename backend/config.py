@@ -24,10 +24,11 @@ STT_PARTIALS = True
 STT_KEYTERMS = [
     "CBI", "police", "digital arrest", "arrest warrant", "OTP", "KYC", "customs", "parcel",
     "courier", "Aadhaar", "PAN", "UPI", "RBI", "safe account", "money laundering", "Dadi",
-    "madam", "inspector", "officer", "account", "badge", "bank",
+    "madam", "inspector", "officer", "account", "badge", "bank", "दादी", "Dadi ji",
 ]
 
 TTS_URL = "https://api.vachana.ai/api/v1/tts/inference"
+TTS_SSE_URL = "https://api.vachana.ai/api/v1/tts/sse"
 TTS_MODEL = "timbre-v2.5"
 TTS_VOICE = "Chitra"
 DADI_VOICE = _env("DADI_VOICE", "Chitra")
