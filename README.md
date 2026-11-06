@@ -17,7 +17,7 @@
   <a href="#real-scam-call">Real scam call?</a>
 </p>
 
-<img src="docs/readme/mission.gif" alt="Mission briefing beside an animated Kamla Dadi. To: you, a very fake officer. Target: Kamla Dadi, 78. Objective: her 4-digit OTP, before she works you out. Weapon: your voice; hold the button and really talk. Help: Boss, whispering real scam tactics. Warning: Boss may not stay till the end. She asks if you've eaten, she catches your lies, and she hands the phone to her grandson. Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do." width="100%">
+<img src="docs/readme/mission.svg" alt="Mission briefing beside an animated Kamla Dadi. To: you, a very fake officer. Target: Kamla Dadi, 78. Objective: her 4-digit OTP, before she works you out. Weapon: your voice; hold the button and really talk. Help: Boss, whispering real scam tactics. Warning: Boss may not stay till the end. She asks if you've eaten, she catches your lies, and she hands the phone to her grandson. Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do." width="100%">
 
 ## Play this README
 
