@@ -8,6 +8,13 @@ next. Dadi fights back with what people should really do: she calls back, asks
 for your badge, gets her grandson, and catches your lies. Every call is a lesson
 in disguise, and it ends by showing you how to protect the people you love.
 
+Every call ends the same way, whether you win or lose: your own phone rings, and a
+stranger's voice reads your best line back to you. All you have to do is hang up,
+because practising that is the point. The idea builds on inoculation research, which
+found that playing the manipulator helps people spot manipulation
+([Basol et al., 2020](https://doi.org/10.5334/joc.91)). That study was about
+misinformation, and this game hasn't been tested as a scam intervention.
+
 ## How it uses Gnani AI
 
 - **Prisma v3.0** hears you live. Its partial transcripts drive the captions, and
@@ -17,6 +24,12 @@ in disguise, and it ends by showing you how to protect the people you love.
 
 Dadi's replies and move scoring come from a separate LLM (Gemini in our build) over
 any OpenAI-compatible API, so Gnani's open-weights Evon can be swapped in.
+
+## Privacy
+
+Your voice goes to Gnani for transcription and your words to the LLM for Dadi's
+replies. The game doesn't save audio or transcripts, and it replaces long numbers,
+such as a phone or Aadhaar number, before anything reaches the LLM.
 
 ## Run it
 

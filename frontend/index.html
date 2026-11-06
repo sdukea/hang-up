@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2a0a5e">
   <title>Scam Dadi</title>
   <meta name="description" content="You are a fake officer. Get Kamla Dadi's OTP. Nobody said it would be easy.">
@@ -94,6 +94,7 @@
             <button class="chunky mini teal" data-quiz="false">No</button>
           </div>
         </div>
+        <p class="privacy-note">Your voice goes to Gnani for speech recognition, and your words to Google's Gemini for Dadi's replies. We don't save either. It's a game, so never say anything real.</p>
         <p id="brief-error" class="brief-error" hidden></p>
       </div>
     </section>
@@ -190,6 +191,21 @@
       </div>
     </section>
 
+    <!-- THE LAST ROUND: YOUR PHONE RINGS -->
+    <section id="s-flip" class="screen" hidden>
+      <div class="flip-card">
+        <p class="flip-kicker" id="flip-kicker">Incoming call</p>
+        <h2 id="flip-title">Unknown number</h2>
+        <p id="flip-line" class="flip-line"></p>
+        <p id="flip-note" class="flip-note"></p>
+        <div id="flip-choices" class="flip-choices" hidden>
+          <button id="b-flip-otp" class="chunky teal">Give the OTP</button>
+          <button id="b-flip-hang" class="chunky pink">Hang up</button>
+        </div>
+        <button id="b-flip-next" class="chunky yellow wide" hidden>Continue</button>
+      </div>
+    </section>
+
     <!-- REPORT -->
     <section id="s-report" class="screen scrolls" hidden>
       <div class="report">
@@ -235,8 +251,8 @@
         </div>
 
         <div class="panel parents">
-          <h3>Your parents won't play this game.</h3>
-          <p>So send them Dadi instead: a 20-second voice note in Hindi that tells them what to do.</p>
+          <h3>Now call yours.</h3>
+          <p>Your parents won't play this game. So send them Dadi: a 20-second voice note in Hindi that tells them what to do.</p>
           <button id="b-parents" class="chunky green wide">Send Dadi to my parents</button>
           <button id="b-parents-play" class="linkish">▶ Hear it first</button>
         </div>

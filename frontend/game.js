@@ -19,12 +19,18 @@ const COUNTER_NOTES = {
   shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
   callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!"],
   pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call ends most scams.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'."],
+  trap: ["SHE'S TESTING YOUR STORY", "Real defence: make them repeat details. Liars slip.", "Yaad hai kya bola tha? Bilkul wahi bol, warna pakda jayega."],
 };
 const GAG_LABELS = {
   knee: "🦵 Ghutna", food: "🍛 Khana khaya?", shaadi: "💍 Shaadi kab?",
   chashma: "👓 Chashma lost", pappu: "🧑‍💻 Pappu", scooter: "🛵 The scooter",
 };
-const OUTCOME_STAMP = { busted: "BUSTED", timeout: "TIME UP", hung_up: "YOU FLED", cracked: "CRACKED" };
+const OUTCOME_STAMP = { busted: "BUSTED", timeout: "TIME UP", hung_up: "YOU FLED", cracked: "CRACKED", reformed: "YOU STOPPED" };
+const CUTOFF_EN = [
+  "Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?",
+  "OTP? OTP? Who asks for an OTP on the first meeting, beta? First tell me who you are.",
+  "Quiet! Don't interrupt me. Someone said this same OTP thing to Sharma ji too.",
+];
 const NEXT_DADI = [
   "Morning: Puja Dadi", "Late morning: Serial Dadi", "Afternoon: Sleepy Dadi",
   "Evening: Kitty Party Dadi", "Night: Lonely Night Dadi",
@@ -56,6 +62,7 @@ const state = {
   gags: {},
   usedFillers: [],
   storyBuilt: false,    // she'll hear an OTP ask without cutting in
+  voiceDown: false,     // no mic or the speech service is full, so typing takes over
   cutoffs: 0,
   speechRun: 0,         // lets a press interrupt whatever Dadi is saying
   report: null,
@@ -87,6 +94,16 @@ function unlockAudio() {
     } catch (err) {
       console.warn("Lip sync unavailable", err);
     }
+  }
+  // Phones only let this player speak later if it starts during a tap.
+  if (!audio.primed) {
+    audio.primed = true;
+    audio.voice.muted = true;
+    audio.voice.src = "/audio/num_0.mp3";
+    audio.voice.play().catch(() => {}).finally(() => {
+      if (!state.speaking) audio.voice.pause();
+      audio.voice.muted = false;
+    });
   }
 }
 
@@ -150,6 +167,7 @@ function say(url, { onEnded } = {}) {
     v.onended = finish;
     v.onerror = finish;
     audio.stop = finish;
+    v.muted = false;
     v.src = url;
     state.speaking = true;
     updateTalk();
@@ -168,15 +186,20 @@ const clip = (name) => `/audio/${name}.mp3`;
 // ---------- Screens ----------
 
 function show(name) {
-  for (const id of ["title", "brief", "ring", "game", "end", "report"]) $(`s-${id}`).hidden = id !== name;
+  for (const id of ["title", "brief", "ring", "game", "end", "flip", "report"]) $(`s-${id}`).hidden = id !== name;
   document.body.classList.toggle("in-game", name === "game" || name === "report");
 }
 
-function bubble(text) {
+function bubble(text, english) {
   const b = $("bubble");
   b.hidden = !text;
   if (text) {
     b.textContent = text;
+    if (english) {
+      const small = document.createElement("small");
+      small.textContent = english;
+      b.append(small);
+    }
     b.style.animation = "none";
     void b.offsetWidth;
     b.style.animation = "";
@@ -213,6 +236,7 @@ function setBoss(boss, tag) {
   $("boss").classList.add("new");
   sfx.radio();
   document.querySelectorAll(".trick").forEach((el) => el.classList.toggle("next", el.dataset.id === boss.tactic && !el.classList.contains("used")));
+  if (boss.gone) $("boss-tag").textContent = "· Line dead";
 }
 
 function setBossText(text, tag) {
@@ -243,6 +267,7 @@ function updateTalk() {
   else if (state.over) label.textContent = "CALL OVER";
   else if (locked) label.textContent = "ON HOLD…";
   else if (state.busy) label.textContent = "DADI IS THINKING";
+  else if (state.voiceDown) label.textContent = "TYPE YOUR LINE BELOW";
   else if (state.callbackPending) label.textContent = "QUICK! STOP HER!";
   else if (state.shoutPending) label.textContent = "HOLD AND SHOUT!";
   else if (state.speaking) label.textContent = "HOLD TO INTERRUPT";
@@ -334,13 +359,26 @@ function openListener() {
       $("you-said").textContent = state.finals.join(" ");
     }
     if (event.type === "flushed") state.flushed = true;
-    if (event.type === "error") console.warn("Speech:", event.message);
+    if (event.type === "error") voiceUnavailable("Voice is full right now. Type your lines instead.");
   };
   state.ws = ws;
   return new Promise((resolve) => {
     ws.onopen = () => resolve(true);
     ws.onerror = () => resolve(false);
   });
+}
+
+// A call never dead-ends: without voice, typing plays the whole game.
+function voiceUnavailable(message) {
+  state.voiceDown = true;
+  $("type-form").hidden = false;
+  if (!$("s-game").hidden) pop("TYPE INSTEAD", message, "move");
+}
+
+async function playSpeech(url, stale = () => false) {
+  if (STREAMS_AUDIO) return say(url);
+  const blob = await fetch(url).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+  if (!stale() && blob) await say(URL.createObjectURL(blob));
 }
 
 // ---------- Starting the call ----------
@@ -367,8 +405,8 @@ async function beginCall() {
   }
   Object.assign(state, {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
-    shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
-    finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0,
+    voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
+    finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
   });
   buildCallScreen(data, hasMic);
 
@@ -444,6 +482,12 @@ function maybeIdle() {
 
 function pressTalk() {
   if (state.holding) return;
+  if (state.voiceDown && !state.over) {
+    $("type-form").hidden = false;
+    $("type-input").focus();
+    pop("TYPE YOUR LINE", "No microphone here, and that's fine", "move");
+    return;
+  }
   if (state.over || state.busy || Date.now() < state.lockedUntil) {
     $("b-talk").classList.remove("nope");
     void $("b-talk").offsetWidth;
@@ -517,7 +561,9 @@ async function cutOff(said) {
   pop("DADI CUT YOU OFF", "You asked before building a story", "bad");
   sfx.bad();
   jolt();
-  const line = say(clip(`cutoff_${state.cutoffs++ % 3}`));
+  const which = state.cutoffs++ % 3;
+  bubble(" ", CUTOFF_EN[which]);
+  const line = say(clip(`cutoff_${which}`));
   const result = await judged;
   if (result) {
     setSuspicion(result.suspicion);
@@ -577,7 +623,10 @@ async function playTurn(text) {
   const reacting = say(clip(firstClip));
   let answered = false;
   const reply = post(`/api/game/${game.id}/turn`, { said: text })
-    .then((resp) => (resp.ok ? resp.json() : null))
+    .then((resp) => {
+      if (resp.status === 404) state.callLost = true;  // the server restarted mid-call
+      return resp.ok ? resp.json() : null;
+    })
     .catch((err) => { console.warn(err); return null; })
     .finally(() => { answered = true; });
   await reacting;
@@ -587,6 +636,10 @@ async function playTurn(text) {
   const result = await reply;
   state.busy = false;
   if (state.over) return;
+  if (state.callLost) {
+    await endCall("hung_up");
+    return;
+  }
   if (!result) {
     await say(clip(`canned_${rand(6)}`));
     return;
@@ -595,17 +648,16 @@ async function playTurn(text) {
   if (stale()) return;
   state.storyBuilt = result.story_built;
 
-  bubble(result.reply);
-  if (result.speech && (STREAMS_AUDIO || result.canned !== null)) {
-    await say(result.speech);
-  } else if (result.speech) {
-    const speechReady = await fetch(result.speech).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
-    if (stale()) return;
-    if (speechReady) await say(URL.createObjectURL(speechReady));
-    else await sleep(1600);
-  }
+  bubble(result.reply, result.reply_en);
+  if (result.speech && result.canned !== null) await say(result.speech);
+  else if (result.speech) await playSpeech(result.speech, stale);
   if (stale()) return;
 
+  if (result.boss_gone) {
+    pop("BOSS HAS GONE SILENT", "You're on your own now. What did you learn?", "bad");
+    sfx.warn();
+    jolt();
+  }
   state.pendingDigits.push(...result.digits);
   await revealDigits(run);
   if (stale()) return;
@@ -632,7 +684,10 @@ function showMoveResult(r) {
   setSuspicion(r.suspicion);
   const trick = document.querySelector(`.trick[data-id="${move.tactic}"]`);
   const notes = move.notes || [];
-  if (notes.includes("contradiction")) {
+  if (notes.includes("story_held")) {
+    pop("YOUR STORY HELD", "She believed you. For now.", "good");
+    sfx.good();
+  } else if (notes.includes("contradiction")) {
     pop("SHE CAUGHT YOUR LIE", "Real scammers slip too. Ask them to repeat their details.", "bad");
     sfx.bad();
     jolt();
@@ -818,7 +873,8 @@ async function endCall(outcome) {
 
   let report = null;
   try {
-    report = await (await post(`/api/game/${state.game.id}/end`)).json();
+    const resp = await post(`/api/game/${state.game.id}/end`);
+    if (resp.ok) report = await resp.json();
   } catch (err) {
     console.warn(err);
   }
@@ -835,6 +891,7 @@ async function endCall(outcome) {
   } else {
     await normalEnding(final);
   }
+  if (state.report.turns) await flipRound();
   showReport();
 }
 
@@ -844,6 +901,7 @@ async function normalEnding(outcome) {
     busted: "Dadi worked you out. She has reported you to 1930, the real cyber-fraud helpline.",
     timeout: "She out-talked you. The call ended and you got nothing.",
     hung_up: "You ran away. Dadi hasn't even finished telling you about her knee.",
+    reformed: "You found the ending most callers never look for: you stopped, and told her the truth.",
   }[outcome] || "";
   $("end-line").textContent = line;
   if (outcome === "busted") {
@@ -852,7 +910,7 @@ async function normalEnding(outcome) {
     jolt();
     await say(clip(`busted_${state.game.mood}`));
   } else {
-    await say(clip(outcome === "timeout" ? "timeout" : "hung_up"));
+    await say(clip(outcome === "timeout" ? "timeout" : outcome === "reformed" ? "reformed" : "hung_up"));
   }
   await sleep(1000);
 }
@@ -875,12 +933,77 @@ async function crackedEnding() {
   $("end-flash").classList.add("siren");
   sfx.siren();
   jolt();
-  await say(clip("reveal_1930"));
+  const again = safeGet("dadi_seen_1930");
+  await say(clip(again ? "reveal_again" : "reveal_1930"));
+  safeSet("dadi_seen_1930", "1");
   await sleep(700);
+  if (again) {
+    $("crack-text").textContent = "You already knew this number. That was the point.";
+    await sleep(2800);
+    return;
+  }
   $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
   await sleep(2800);
   $("crack-text").textContent = "So make sure yours know the number.";
   await sleep(2400);
+}
+
+// ---------- The last round: now it's your phone ----------
+
+// Playing the scammer only helps if you practise the other side. A stranger's
+// voice reads the player's own best line, then asks for an OTP. All they have to
+// do is what a real target should: hang up.
+async function flipRound() {
+  show("flip");
+  $("flip-kicker").textContent = "Incoming call";
+  $("flip-title").textContent = "Unknown number";
+  $("flip-line").textContent = "";
+  $("flip-note").textContent = "";
+  $("flip-choices").hidden = false;
+  $("b-flip-next").hidden = true;
+  sfx.ring();
+
+  let answer;
+  const choice = new Promise((resolve) => { answer = resolve; });
+  $("b-flip-hang").onclick = () => answer("hang");
+  $("b-flip-otp").onclick = () => answer("otp");
+
+  const run = ++state.speechRun;
+  (async () => {
+    await sleep(1200);
+    const call = await post(`/api/game/${state.game.id}/flip`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (run !== state.speechRun) return;
+    if (call && call.own_line) {
+      $("flip-line").textContent = `"${call.own_line}"`;
+      $("flip-note").textContent = "Those are your words. It's someone else's voice.";
+    } else {
+      $("flip-note").textContent = "Same script. This time it's your phone.";
+    }
+    await playSpeech(call ? call.speech : clip("flip_open"), () => run !== state.speechRun);
+    if (run !== state.speechRun) return;
+    await say(clip("flip_ask"));
+    if (run !== state.speechRun) return;
+    await sleep(6000);  // no answer is an answer too
+    answer("froze");
+  })().catch((err) => { console.warn(err); answer("froze"); });
+
+  const picked = await choice;
+  hush();
+  $("flip-choices").hidden = true;
+  const hungUp = picked === "hang";
+  post(`/api/game/${state.game.id}/flip/result`, { hung_up: hungUp });
+  $("flip-kicker").textContent = hungUp ? "Call ended" : "That's how it happens";
+  $("flip-title").textContent = hungUp ? "That's the whole defence." : picked === "froze" ? "You froze." : "You gave it away.";
+  $("flip-line").textContent = "";
+  $("flip-note").textContent = hungUp
+    ? "Hang up, tell someone you trust, and call 1930 if money has gone."
+    : "You ran this exact script a minute ago, and it still got you. In a real call, just hang up.";
+  if (hungUp) sfx.good(); else { sfx.bad(); jolt(); }
+  $("b-flip-next").hidden = false;
+  const heard = say(clip(hungUp ? "flip_pass" : "flip_fail"));
+  await new Promise((resolve) => { $("b-flip-next").onclick = resolve; });
+  hush();
+  await heard;
 }
 
 // ---------- The report: a lesson in disguise ----------
@@ -982,7 +1105,9 @@ const SITE = location.origin;
 
 function shareText() {
   const r = state.report;
-  const line = r.outcome === "cracked"
+  const line = r.outcome === "reformed"
+    ? "I tried to scam Kamla Dadi on Scam Dadi. Then I confessed. She asked if I'd eaten."
+    : r.outcome === "cracked"
     ? `I got all 4 digits of Kamla Dadi's OTP on Scam Dadi. Then she got me.`
     : `I tried to scam ${r.mood} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
   return `${line} Try it, and learn how the real scam works: ${SITE}`;

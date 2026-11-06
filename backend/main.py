@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from . import config, game, tts
 from .storage import store
-from .stt import FINAL_EVENTS, PrismaStream
+from .stt import PrismaStream
 
 log = logging.getLogger("dadi")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -28,11 +28,12 @@ FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 
 games: dict[str, game.Game] = {}
-speech: dict[str, tuple[str, float]] = {}
+speech: dict[str, tuple[str, float, str]] = {}
 _starts: dict[str, deque] = defaultdict(deque)
 _listen_sessions = 0
 stats = {
-    "plays": 0, "cracked": 0, "busted": 0, "timeouts": 0, "seconds": 0,
+    "plays": 0, "cracked": 0, "busted": 0, "timeouts": 0, "reformed": 0, "seconds": 0,
+    "flip": [0, 0],  # [hung up, answered], from the last round
     "quiz_before": [0, 0], "quiz_after": [0, 0],  # [answered correctly, answered]
 }
 _stats_dirty = False
@@ -77,7 +78,7 @@ def _purge():
     cutoff = time.time() - 900
     for key in [k for k, g in games.items() if g.started < cutoff]:
         del games[key]
-    for key in [k for k, (_, at) in speech.items() if at < cutoff]:
+    for key in [k for k, (_, at, _v) in speech.items() if at < cutoff]:
         del speech[key]
 
 
@@ -150,9 +151,11 @@ async def play_turn(game_id: str, body: Turn):
     if g.outcome:
         raise HTTPException(status_code=409, detail="This call has ended.")
     result = await g.turn(body.said, _seconds_left(g))
-    if result["canned"] is None:
+    if not result["reply"]:
+        result["speech"] = None
+    elif result["canned"] is None:
         token = f"{g.id}-{g.turns}"
-        speech[token] = (result["reply"], time.time())
+        speech[token] = (result["reply"], time.time(), config.DADI_VOICE)
         result["speech"] = f"/api/speech/{token}"
     else:
         result["speech"] = f"/audio/canned_{result['canned']}.mp3"
@@ -165,7 +168,7 @@ async def spoken_reply(token: str):
     item = speech.pop(token, None)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
-    audio = tts.stream(item[0], "hi-IN", voice=config.DADI_VOICE, model=config.TTS_MODEL, speed=config.DADI_SPEED)
+    audio = tts.stream(item[0], "hi-IN", voice=item[2], model=config.TTS_MODEL, speed=config.DADI_SPEED)
     try:
         first = await anext(audio)
     except (tts.TTSError, RuntimeError, StopAsyncIteration) as e:
@@ -181,6 +184,33 @@ async def spoken_reply(token: str):
             log.warning("Speech stopped early: %s", e)
 
     return StreamingResponse(rest(), media_type="audio/mpeg")
+
+
+@app.post("/api/game/{game_id}/flip")
+async def flip_round(game_id: str):
+    """The last round: a stranger's voice calls the player, using the player's own words."""
+    g = _get_game(game_id)
+    if not g.own_line:
+        return {"own_line": None, "speech": "/audio/flip_open.mp3"}
+    token = f"{g.id}-flip"
+    speech[token] = (g.own_line, time.time(), config.PAPPU_VOICE)
+    return {"own_line": g.own_line, "speech": f"/api/speech/{token}"}
+
+
+class FlipResult(BaseModel):
+    hung_up: bool
+
+
+@app.post("/api/game/{game_id}/flip/result")
+async def flip_result(game_id: str, body: FlipResult):
+    global _stats_dirty
+    g = _get_game(game_id)
+    if not g.demo and not getattr(g, "flip_counted", False):
+        g.flip_counted = True
+        stats["flip"][0] += 1 if body.hung_up else 0
+        stats["flip"][1] += 1
+        _stats_dirty = True
+    return {"ok": True}
 
 
 class CutOff(BaseModel):
@@ -226,6 +256,8 @@ async def end_game(game_id: str):
             stats["busted"] += 1
         elif report["outcome"] == "timeout":
             stats["timeouts"] += 1
+        elif report["outcome"] == "reformed":
+            stats["reformed"] += 1
         _stats_dirty = True
     report["crack_rate"] = round(100 * stats["cracked"] / max(1, stats["plays"]), 1)
     return report
@@ -280,8 +312,6 @@ async def listen(browser: WebSocket):
 
     async def prisma_to_browser():
         async for event in prisma.events():
-            if event.get("type") in FINAL_EVENTS:
-                log.info("[heard] %s", event.get("text"))
             await browser.send_json(event)
 
     tasks = [asyncio.create_task(browser_to_prisma()), asyncio.create_task(prisma_to_browser())]
