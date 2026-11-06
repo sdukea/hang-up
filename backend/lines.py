@@ -4,7 +4,7 @@ Each is voiced once by scripts/make_voice.py into frontend/audio/<id>.mp3, so th
 play instantly and don't use the one-at-a-time speech service during a game.
 """
 
-from .game import CANNED_REPLIES
+from .game import CANNED_REPLIES, FALLBACKS
 
 LINES = {
     # Picking up, by mood
@@ -85,5 +85,6 @@ LINES = {
     "parents": "नमस्ते, मैं कमला दादी। ध्यान से सुनिए। अगर कोई फ़ोन करके बोले कि वो पुलिस या CBI से है, आपके नाम पर केस है, और किसी को मत बताना, तो समझ लीजिए वो ठग है। डिजिटल अरेस्ट जैसी कोई चीज़ नहीं होती। पुलिस कभी OTP या पैसे नहीं माँगती। फ़ोन काटिए, बच्चों को बताइए, और उन्नीस सौ तीस पर कॉल कीजिए। बस इतना याद रखिए।",
 }
 LINES.update({f"canned_{i}": text for i, text in enumerate(CANNED_REPLIES)})
+LINES.update({clip: text for bank in FALLBACKS.values() for clip, text, _ in bank})
 
 PAPPU_LINES = {"pappu_voice", "flip_open", "flip_ask"}

@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 
 import httpx
 
@@ -21,7 +22,15 @@ class LLMError(RuntimeError):
     pass
 
 
+class LLMBadOutput(LLMError):
+    """The provider answered, but not with something usable. It isn't an outage."""
+
+
 HEDGE_SECONDS = 3.0
+FAILS_BEFORE_PAUSE = 3
+PAUSE_SECONDS = 30.0
+_fails_in_a_row = 0
+_paused_until = 0.0
 
 
 async def _post(client: httpx.AsyncClient, model: str, system: str, user: str, temperature: float) -> httpx.Response:
@@ -62,6 +71,25 @@ async def complete_json(system: str, user: str, temperature: float = 0.2) -> dic
                 task.cancel()
 
 
+async def complete_live(system: str, user: str, temperature: float, deadline: float) -> dict:
+    """For a player waiting on a call: once the provider is clearly down, stop making them wait for it."""
+    global _fails_in_a_row, _paused_until
+    if time.monotonic() < _paused_until:
+        raise LLMError("skipped while the LLM is down")
+    try:
+        data = await asyncio.wait_for(complete_json(system, user, temperature), timeout=deadline)
+    except LLMBadOutput:
+        _fails_in_a_row = 0
+        raise
+    except (LLMError, asyncio.TimeoutError) as e:
+        _fails_in_a_row += 1
+        if _fails_in_a_row >= FAILS_BEFORE_PAUSE:
+            _paused_until = time.monotonic() + PAUSE_SECONDS
+        raise LLMError(str(e) or "LLM timed out") from e
+    _fails_in_a_row = 0
+    return data
+
+
 async def _backup(main: asyncio.Task, client: httpx.AsyncClient, system: str, user: str, temperature: float) -> dict:
     """Live game: start the fallback if the main model fails or is slow. The first answer wins."""
     await asyncio.wait({main}, timeout=HEDGE_SECONDS)
@@ -74,23 +102,33 @@ async def _attempt(client: httpx.AsyncClient, model: str, system: str, user: str
     except httpx.HTTPError as e:
         raise LLMError(f"LLM {model} unreachable: {e.__class__.__name__}") from e
     if resp.status_code != 200:
-        raise LLMError(f"LLM {model} failed ({resp.status_code}): {resp.text[:300]}")
+        raise LLMError(f"LLM {model} failed ({resp.status_code})")
     try:
         content = resp.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, ValueError) as e:
-        raise LLMError(f"Unexpected LLM response: {resp.text[:300]}") from e
+    except (KeyError, IndexError, TypeError, ValueError) as e:
+        raise LLMBadOutput(f"LLM {model} sent an unexpected response") from e
     return _parse_json(content)
 
 
-def _parse_json(text: str) -> dict:
-    """Parse a JSON object, tolerating code fences or text around it."""
+def _parse_json(text) -> dict:
+    """Parse a JSON object, tolerating code fences, text around it, or a list holding it.
+
+    Errors never quote the model's text, because it can echo what a player said.
+    """
+    if not isinstance(text, str):
+        raise LLMBadOutput("LLM sent no text")
     try:
-        return json.loads(text)
+        data = json.loads(text)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", text, re.S)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                pass
-    raise LLMError(f"LLM did not return JSON: {text[:300]}")
+        if not match:
+            raise LLMBadOutput("LLM did not return JSON") from None
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            raise LLMBadOutput("LLM did not return JSON") from None
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        data = data[0]
+    if not isinstance(data, dict):
+        raise LLMBadOutput("LLM did not return a JSON object")
+    return data

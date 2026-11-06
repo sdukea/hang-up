@@ -158,7 +158,7 @@ async def play_turn(game_id: str, body: Turn):
         speech[token] = (result["reply"], time.time(), config.DADI_VOICE)
         result["speech"] = f"/api/speech/{token}"
     else:
-        result["speech"] = f"/audio/canned_{result['canned']}.mp3"
+        result["speech"] = f"/audio/{result['canned']}.mp3"
     return result
 
 

@@ -4,16 +4,23 @@
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rand = (n) => Math.floor(Math.random() * n);
-const post = (url, body) => fetch(url, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body || {}),
-});
+// A hung request must not hang the call.
+const post = (url, body, ms = 12000) => {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), ms);
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+    signal: stop.signal,
+  }).finally(() => clearTimeout(timer));
+};
 
 const SHOUT_LEVEL = 0.32;      // how loud "louder!" means, on the 0-1 meter
 const OTP_WORD = /o\s*t\s*p\b|ओ\s*टी\s*पी/i;
 // Safari replays media requests and needs byte ranges, so it waits for the whole reply.
 const STREAMS_AUDIO = !/iP(hone|ad|od)|^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const CLIP_STALL_MS = 10000;   // a clip that makes no progress for this long has failed
 const COUNTER_NOTES = {
   hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta."],
   shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
@@ -26,6 +33,7 @@ const GAG_LABELS = {
   chashma: "👓 Chashma lost", pappu: "🧑‍💻 Pappu", scooter: "🛵 The scooter",
 };
 const OUTCOME_STAMP = { busted: "BUSTED", timeout: "TIME UP", hung_up: "YOU FLED", cracked: "CRACKED", reformed: "YOU STOPPED" };
+const NOT_ANSWERING = "Dadi isn't answering. Try again in a minute.";
 const CUTOFF_EN = [
   "Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?",
   "OTP? OTP? Who asks for an OTP on the first meeting, beta? First tell me who you are.",
@@ -62,7 +70,12 @@ const state = {
   gags: {},
   usedFillers: [],
   storyBuilt: false,    // she'll hear an OTP ask without cutting in
+  starting: false,      // a call is being set up, so a second tap does nothing
   voiceDown: false,     // no mic or the speech service is full, so typing takes over
+  voiceWarned: false,   // told them Dadi's voice dropped
+  listenFails: 0,       // voice socket drops in a row
+  deadMicHolds: 0,      // presses where the mic sent nothing at all
+  heldAt: 0,
   cutoffs: 0,
   speechRun: 0,         // lets a press interrupt whatever Dadi is saying
   report: null,
@@ -78,10 +91,20 @@ document.querySelectorAll("[data-dadi]").forEach((el) => el.append(art.content.c
 const audio = { ctx: null, voice: new Audio(), analyser: null, connected: false, mouthData: null };
 audio.voice.preload = "auto";
 
+function resumeAudio() {
+  if (audio.ctx && audio.ctx.state !== "running") audio.ctx.resume().catch(() => {});
+}
+
 function unlockAudio() {
   if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audio.ctx.state === "suspended") audio.ctx.resume();
-  if (!audio.connected) {
+  resumeAudio();
+  if (!audio.mouthMoving) {
+    audio.mouthMoving = true;
+    requestAnimationFrame(moveMouth);
+  }
+  // Routed through the context, Safari can leave her silent after the mic prompt.
+  // There she plays directly, and the mouth keeps time on its own.
+  if (STREAMS_AUDIO && !audio.connected) {
     try {
       const source = audio.ctx.createMediaElementSource(audio.voice);
       audio.analyser = audio.ctx.createAnalyser();
@@ -90,13 +113,12 @@ function unlockAudio() {
       source.connect(audio.analyser);
       audio.analyser.connect(audio.ctx.destination);
       audio.connected = true;
-      requestAnimationFrame(moveMouth);
     } catch (err) {
       console.warn("Lip sync unavailable", err);
     }
   }
   // Phones only let this player speak later if it starts during a tap.
-  if (!audio.primed) {
+  if (!audio.primed && !state.speaking) {
     audio.primed = true;
     audio.voice.muted = true;
     audio.voice.src = "/audio/num_0.mp3";
@@ -109,15 +131,18 @@ function unlockAudio() {
 
 // Dadi's mouth follows her real voice.
 function moveMouth() {
-  if (audio.analyser && !audio.voice.paused) {
-    audio.analyser.getByteTimeDomainData(audio.mouthData);
-    let sum = 0;
-    for (const v of audio.mouthData) sum += (v - 128) ** 2;
-    const level = Math.min(1, Math.sqrt(sum / audio.mouthData.length) / 40);
-    document.documentElement.style.setProperty("--mouth", level.toFixed(2));
-  } else {
-    document.documentElement.style.setProperty("--mouth", "0");
+  let level = 0;
+  if (!audio.voice.paused && !audio.voice.muted) {
+    if (audio.analyser) {
+      audio.analyser.getByteTimeDomainData(audio.mouthData);
+      let sum = 0;
+      for (const v of audio.mouthData) sum += (v - 128) ** 2;
+      level = Math.min(1, Math.sqrt(sum / audio.mouthData.length) / 40);
+    } else {
+      level = 0.4 + 0.3 * Math.sin(performance.now() / 85);
+    }
   }
+  document.documentElement.style.setProperty("--mouth", level.toFixed(2));
   requestAnimationFrame(moveMouth);
 }
 
@@ -153,26 +178,50 @@ const sfx = {
 
 function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
 
-// Play a clip on Dadi's voice channel. A new press of the talk button cuts her off.
-function say(url, { onEnded } = {}) {
+// Play a clip on Dadi's voice channel. A new clip or a press of the talk button cuts
+// off the last one. Only the clip playing now can touch the channel, and one that
+// fails or stalls gives up, so nothing ever waits on her forever.
+function say(url) {
+  if (audio.stop) audio.stop();
+  resumeAudio();
   return new Promise((resolve) => {
     const v = audio.voice;
-    const finish = () => {
-      v.onended = v.onerror = null;
+    let stalled;
+    const finish = (failed = false) => {
+      if (audio.stop !== finish) return;
+      audio.stop = null;
+      clearTimeout(stalled);
+      v.onended = v.onerror = v.ontimeupdate = null;
       state.speaking = false;
       updateTalk();
-      if (onEnded) onEnded();
+      if (failed) voiceTrouble();
       resolve();
     };
-    v.onended = finish;
-    v.onerror = finish;
+    const watch = () => {
+      clearTimeout(stalled);
+      stalled = setTimeout(() => finish(true), CLIP_STALL_MS);
+    };
     audio.stop = finish;
+    v.onended = () => finish();
+    v.onerror = () => finish(true);
+    v.ontimeupdate = watch;
     v.muted = false;
     v.src = url;
     state.speaking = true;
     updateTalk();
-    v.play().catch(finish);
+    watch();
+    v.play().catch((err) => {
+      if (err.name === "NotAllowedError") audio.primed = false;  // the next tap tries again
+      finish(err.name !== "AbortError");
+    });
   });
+}
+
+// Her words are always on screen, so a lost voice doesn't stop the game.
+function voiceTrouble() {
+  if (state.voiceWarned || $("s-game").hidden) return;
+  state.voiceWarned = true;
+  pop("DADI'S VOICE DROPPED", "Read her lines on screen. The call goes on.", "move");
 }
 
 function hush() {
@@ -266,7 +315,7 @@ function updateTalk() {
   if (state.holding) label.textContent = state.shoutPending ? "LOUDER!" : "TALKING…";
   else if (state.over) label.textContent = "CALL OVER";
   else if (locked) label.textContent = "ON HOLD…";
-  else if (state.busy) label.textContent = "DADI IS THINKING";
+  else if (state.busy) label.textContent = state.speaking ? "LISTEN…" : "DADI IS THINKING";
   else if (state.voiceDown) label.textContent = "TYPE YOUR LINE BELOW";
   else if (state.callbackPending) label.textContent = "QUICK! STOP HER!";
   else if (state.shoutPending) label.textContent = "HOLD AND SHOUT!";
@@ -304,7 +353,7 @@ for (const btn of document.querySelectorAll("[data-quiz]")) {
 
 // ---------- Microphone ----------
 
-const mic = { ctx: null, stream: null, ready: false };
+const mic = { stream: null, nodes: null, ready: false, loaded: false, blocked: false };
 
 async function startMic() {
   if (mic.ready) return true;
@@ -313,20 +362,58 @@ async function startMic() {
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
     });
     const ctx = audio.ctx;
-    await ctx.audioWorklet.addModule("/pcm-worklet.js");
+    resumeAudio();  // a permission prompt can leave it suspended
+    if (!mic.loaded) {
+      await ctx.audioWorklet.addModule("/pcm-worklet.js");
+      mic.loaded = true;
+    }
     const worklet = new AudioWorkletNode(ctx, "pcm-worklet");
     worklet.port.onmessage = (e) => onMicFrame(e.data);
-    ctx.createMediaStreamSource(mic.stream).connect(worklet);
+    const source = ctx.createMediaStreamSource(mic.stream);
+    source.connect(worklet);
     // Chrome only runs nodes that lead to the speakers, so route through silence.
     const mute = ctx.createGain();
     mute.gain.value = 0;
     worklet.connect(mute).connect(ctx.destination);
+    mic.nodes = { source, worklet, mute };
+    mic.stream.getAudioTracks().forEach((track) => { track.onended = micLost; });
     mic.ready = true;
+    mic.blocked = false;
     return true;
   } catch (err) {
     console.warn("No microphone", err);
+    mic.blocked = err.name === "NotAllowedError";
+    stopMic();
     return false;
   }
+}
+
+// The mic is only ever on during a call, so the browser's indicator goes out with it.
+function stopMic() {
+  if (mic.stream) {
+    mic.stream.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+  }
+  if (mic.nodes) {
+    mic.nodes.worklet.port.onmessage = null;
+    mic.nodes.source.disconnect();
+    mic.nodes.worklet.disconnect();
+    mic.nodes.mute.disconnect();
+  }
+  mic.stream = mic.nodes = null;
+  mic.ready = false;
+}
+
+const inCall = () => state.game && !state.over && !$("s-game").hidden;
+
+// Another app or a phone call can take the mic mid-game. Try once to get it back.
+async function micLost() {
+  stopMic();
+  if (!inCall() || state.voiceDown) return;
+  releaseTalk();
+  if (!(await startMic()) && inCall()) voiceUnavailable("We lost your microphone. Type your lines instead.");
 }
 
 function onMicFrame(buffer) {
@@ -344,6 +431,16 @@ function openListener() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/listen`);
   ws.binaryType = "arraybuffer";
+  ws.onclose = () => {
+    if (state.ws !== ws || state.over || state.voiceDown) return;
+    if (++state.listenFails > 3) {
+      voiceUnavailable("Your voice line keeps dropping. Type your lines instead.");
+      return;
+    }
+    setTimeout(() => {
+      if (state.ws === ws && !state.over && !state.voiceDown) openListener();
+    }, 500 * state.listenFails);
+  };
   ws.onmessage = (e) => {
     const event = JSON.parse(e.data);
     if (event.type === "speech_start") state.pendingSegments++;
@@ -363,7 +460,10 @@ function openListener() {
   };
   state.ws = ws;
   return new Promise((resolve) => {
-    ws.onopen = () => resolve(true);
+    ws.onopen = () => {
+      state.listenFails = 0;
+      resolve(true);
+    };
     ws.onerror = () => resolve(false);
   });
 }
@@ -372,18 +472,49 @@ function openListener() {
 function voiceUnavailable(message) {
   state.voiceDown = true;
   $("type-form").hidden = false;
+  updateTalk();
   if (!$("s-game").hidden) pop("TYPE INSTEAD", message, "move");
 }
 
-async function playSpeech(url, stale = () => false) {
-  if (STREAMS_AUDIO) return say(url);
-  const blob = await fetch(url).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
-  if (!stale() && blob) await say(URL.createObjectURL(blob));
+async function playSpeech(url, stale = () => false, onReady = () => {}) {
+  if (STREAMS_AUDIO) {
+    onReady();
+    return say(url);
+  }
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 15000);
+  const blob = await fetch(url, { signal: stop.signal }).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+  clearTimeout(timer);
+  if (stale()) return;
+  onReady();
+  if (!blob) {
+    voiceTrouble();
+    return;
+  }
+  const local = URL.createObjectURL(blob);
+  await say(local);
+  URL.revokeObjectURL(local);
 }
 
 // ---------- Starting the call ----------
 
 async function beginCall() {
+  if (state.starting) return;
+  state.starting = true;
+  try {
+    await runCall();
+  } finally {
+    state.starting = false;
+  }
+}
+
+function startFailed(message) {
+  stopMic();
+  $("brief-error").textContent = message;
+  $("brief-error").hidden = false;
+}
+
+async function runCall() {
   $("brief-error").hidden = true;
   // Never let an unanswered permission prompt freeze the game; typing still works.
   const hasMic = await Promise.race([startMic(), sleep(15000).then(() => false)]);
@@ -395,18 +526,22 @@ async function beginCall() {
       demo: demoMode(),
       returning_name: returning,
       quiz: state.quizBefore,
-    });
-    if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).detail || "Dadi isn't answering. Try again in a minute.");
+    }, 30000);
+    if (!resp.ok) {
+      startFailed((await resp.json().catch(() => ({}))).detail || NOT_ANSWERING);
+      return;
+    }
     data = await resp.json();
   } catch (err) {
-    $("brief-error").textContent = err.message;
-    $("brief-error").hidden = false;
+    console.warn(err);
+    startFailed(NOT_ANSWERING);
     return;
   }
   Object.assign(state, {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
+    voiceWarned: false, listenFails: 0, deadMicHolds: 0,
   });
   buildCallScreen(data, hasMic);
 
@@ -414,7 +549,7 @@ async function beginCall() {
   $("ring-tag").textContent = data.tagline;
   show("ring");
   sfx.ring();
-  if (hasMic) await openListener();
+  if (hasMic) await Promise.race([openListener(), sleep(4000)]);
   await sleep(1400);
   sfx.ring();
   await sleep(1500);
@@ -423,8 +558,10 @@ async function beginCall() {
   setBossText(data.intel, `· Intel on ${data.mood_name}`);
   setSuspicion(data.suspicion);
   pop(data.mood_name.toUpperCase(), data.twist);
+  if (!hasMic) setTimeout(() => pop(mic.blocked ? "YOUR MIC IS BLOCKED" : "NO MICROPHONE", mic.blocked ? "Allow it in your browser settings, or just type." : "No problem. Just type your lines.", "move"), 1200);
   await say(clip(data.greet));
-  if (!state.over) setBoss(data.boss, "· Your first move");
+  if (state.over) return;
+  setBoss(data.boss, "· Your first move");
   startTimer();
   state.idleAt = Date.now() + 14000;
 }
@@ -485,7 +622,7 @@ function pressTalk() {
   if (state.voiceDown && !state.over) {
     $("type-form").hidden = false;
     $("type-input").focus();
-    pop("TYPE YOUR LINE", "No microphone here, and that's fine", "move");
+    pop("TYPE YOUR LINE", mic.blocked ? "Your mic is blocked, and that's fine" : "Voice isn't available, and that's fine", "move");
     return;
   }
   if (state.over || state.busy || Date.now() < state.lockedUntil) {
@@ -500,6 +637,7 @@ function pressTalk() {
     pop("YOU INTERRUPTED DADI", "", "gag");
   }
   state.holding = true;
+  state.heldAt = Date.now();
   state.peak = 0;
   state.finals = [];
   state.partial = "";
@@ -515,7 +653,10 @@ function pressTalk() {
     post(`/api/game/${state.game.id}/counter`, { effect: "callback", passed: true });
     pop("STOPPED HER!", "", "good");
   }
-  if (state.ws && state.ws.readyState !== WebSocket.OPEN && state.ws.readyState !== WebSocket.CONNECTING) openListener();
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+    pop("RECONNECTING YOUR LINE", "Give it a second, then speak", "move");
+    if (!state.ws || state.ws.readyState !== WebSocket.CONNECTING) openListener();
+  }
   updateTalk();
 }
 
@@ -526,9 +667,20 @@ async function releaseTalk() {
   $("b-talk").style.setProperty("--level", "0");
   state.busy = true;
   updateTalk();
+  const heldFor = Date.now() - state.heldAt;
   const text = await collectSpeech();
   state.busy = false;
   if (state.over) return;
+  // Not even silence reached us, so the mic isn't really working.
+  if (!text && heldFor > 1000 && state.peak === 0) {
+    resumeAudio();
+    if (++state.deadMicHolds >= 2) {
+      voiceUnavailable("Your mic isn't sending any sound. Type your lines instead.");
+      return;
+    }
+  } else if (state.peak > 0) {
+    state.deadMicHolds = 0;
+  }
   await handleSaid(text, state.peak);
 }
 
@@ -537,7 +689,7 @@ async function collectSpeech() {
   if (state.ws && state.ws.readyState === WebSocket.OPEN) {
     state.ws.send("flush");
     const deadline = Date.now() + 2800;
-    while (Date.now() < deadline && !(state.flushed && state.pendingSegments === 0)) await sleep(60);
+    while (Date.now() < deadline && state.ws.readyState === WebSocket.OPEN && !(state.flushed && state.pendingSegments === 0)) await sleep(60);
   }
   const text = [...state.finals, state.partial].join(" ").trim();
   state.finals = [];
@@ -601,6 +753,7 @@ async function handleSaid(text, peak, typed = false) {
     state.shoutPending = false;
     applyCounter("shout", true);
     pop("SHE HEARD YOU", "", "good");
+    state.busy = true;
     await say(clip("shout_pass"));
   }
 
@@ -624,7 +777,8 @@ async function playTurn(text) {
   let answered = false;
   const reply = post(`/api/game/${game.id}/turn`, { said: text })
     .then((resp) => {
-      if (resp.status === 404) state.callLost = true;  // the server restarted mid-call
+      // The server restarted mid-call, or already knows how this call ended.
+      if (resp.status === 404 || resp.status === 409) state.callLost = true;
       return resp.ok ? resp.json() : null;
     })
     .catch((err) => { console.warn(err); return null; })
@@ -634,23 +788,35 @@ async function playTurn(text) {
   await Promise.race([reply, sleep(1000)]);
   if (!answered) await say(clip(pickFiller()));
   const result = await reply;
-  state.busy = false;
   if (state.over) return;
   if (state.callLost) {
+    state.busy = false;
     await endCall("hung_up");
     return;
   }
   if (!result) {
-    await say(clip(`canned_${rand(6)}`));
+    state.busy = false;
+    pop("THE LINE BROKE UP", "Dadi didn't catch that. Say it again.", "move");
+    await say(clip("canned_0"));  // "the network dropped, say that again"
     return;
   }
-  if (run === state.speechRun || !state.speaking) showMoveResult(result);
-  if (stale()) return;
+  showMoveResult(result);
   state.storyBuilt = result.story_built;
-
   bubble(result.reply, result.reply_en);
-  if (result.speech && result.canned !== null) await say(result.speech);
-  else if (result.speech) await playSpeech(result.speech, stale);
+
+  // Ordinary chatter can be talked over. A digit, an ending or her counter-move
+  // can't, or the player would never see what they just won or triggered.
+  const mustHear = Boolean(result.digits.length || result.outcome || result.effect || result.boss_gone);
+  const canPress = () => {
+    state.busy = mustHear;
+    updateTalk();
+  };
+  if (result.speech && result.canned === null) {
+    await playSpeech(result.speech, stale, canPress);
+  } else {
+    canPress();
+    if (result.speech) await say(result.speech);
+  }
   if (stale()) return;
 
   if (result.boss_gone) {
@@ -663,10 +829,13 @@ async function playTurn(text) {
   if (stale()) return;
 
   if (result.outcome) {
+    state.busy = false;
     await endCall(result.outcome);
     return;
   }
   if (result.effect) await runCounter(result.effect);
+  state.busy = false;
+  updateTalk();
   state.idleAt = Date.now() + 15000;
 }
 
@@ -755,7 +924,8 @@ function applyCounter(effect, passed) {
       if (!data) return;
       setSuspicion(data.suspicion);
       if (data.outcome && !state.over) endCall(data.outcome);
-    });
+    })
+    .catch((err) => console.warn(err));
 }
 
 async function runCounter(effect) {
@@ -774,6 +944,7 @@ async function runCounter(effect) {
     updateTalk();
   } else if (effect === "callback") {
     await say(clip("callback"));
+    state.busy = false;
     state.callbackPending = true;
     updateTalk();
     state.callbackTimer = setTimeout(async () => {
@@ -825,6 +996,13 @@ talk.addEventListener("pointerdown", (e) => {
 talk.addEventListener("pointerup", releaseTalk);
 talk.addEventListener("pointercancel", releaseTalk);
 talk.addEventListener("contextmenu", (e) => e.preventDefault());
+// Leaving the app mid-press would otherwise keep the line open.
+window.addEventListener("blur", releaseTalk);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) releaseTalk();
+  else resumeAudio();
+});
+window.addEventListener("pagehide", stopMic);
 
 window.addEventListener("keydown", (e) => {
   if (e.code !== "Space" || e.repeat || $("s-game").hidden || document.activeElement === $("type-input")) return;
@@ -846,6 +1024,7 @@ $("type-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = $("type-input").value.trim();
   if (!text || state.busy || state.over || Date.now() < state.lockedUntil) return;
+  unlockAudio();
   $("type-input").value = "";
   if (state.speaking) hush();
   if (state.callbackPending) {
@@ -869,6 +1048,7 @@ async function endCall(outcome) {
   state.holding = false;
   $("b-talk").classList.remove("down");
   if (state.ws) state.ws.close();
+  stopMic();
   updateTalk();
 
   let report = null;

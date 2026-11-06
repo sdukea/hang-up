@@ -11,7 +11,6 @@ Hints stay at the level of public fraud-awareness material: tactics people
 should recognise, never operational detail.
 """
 
-import asyncio
 import logging
 import random
 import re
@@ -216,12 +215,14 @@ class Game:
         self.boss_gone = False
         self.boss_said_bye = False
         self.own_line: str | None = None
-        self.canned_left: list[int] = []
+        self.fallbacks_left: dict[str, list[tuple[str, str, str]]] = {}
 
-    def next_canned(self) -> int:
-        if not self.canned_left:
-            self.canned_left = self.rng.sample(range(len(CANNED_REPLIES)), len(CANNED_REPLIES))
-        return self.canned_left.pop()
+    def next_fallback(self, tactic: str) -> tuple[str, str, str]:
+        """A recorded line for this kind of move, without repeats until they've all played."""
+        bank = tactic if tactic in FALLBACKS else "any"
+        if not self.fallbacks_left.get(bank):
+            self.fallbacks_left[bank] = self.rng.sample(FALLBACKS[bank], len(FALLBACKS[bank]))
+        return self.fallbacks_left[bank].pop()
 
     @property
     def story_built(self) -> bool:
@@ -417,20 +418,21 @@ class Game:
         effect = self.pick_effect()
         reply_en, confessed = None, False
         try:
-            data = await asyncio.wait_for(
-                llm.complete_json(SYSTEM, self.build_prompt(said, effect, trapping), temperature=0.9), timeout=6.5)
+            data = await llm.complete_live(SYSTEM, self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
             reply = clean_reply(data.get("reply"))
-            tactic = data.get("tactic") if data.get("tactic") in TACTICS else "none"
-            quality = data.get("quality") if data.get("quality") in (0, 1, 2, 3) else 1
+            tactic = data.get("tactic") if isinstance(data.get("tactic"), str) and data["tactic"] in TACTICS else "none"
+            quality = data.get("quality") if type(data.get("quality")) is int and 0 <= data["quality"] <= 3 else 1
             contradiction = data.get("contradiction") is True
             name = data.get("claimed_name")
-            gags = [g for g in data.get("gags") or [] if g in self.gags]
+            gags = [g for g in data.get("gags") if isinstance(g, str) and g in self.gags] if isinstance(data.get("gags"), list) else []
             reply_en = data.get("reply_en") if isinstance(data.get("reply_en"), str) else None
             confessed = data.get("confessed") is True
-        except (llm.LLMError, asyncio.TimeoutError) as e:
-            log.warning("Dadi's reply fell back to a canned line: %s", str(e)[:200] or "timed out")
+        except llm.LLMError as e:
+            log.warning("Dadi's reply fell back to a recorded line: %s", str(e)[:200])
             # An outage on our side shouldn't cost the player, so the move still counts.
-            reply, tactic, quality, contradiction, name, gags = None, "none", 2, False, None, []
+            # Nobody can judge it now, so only a bare demand scores as lazy.
+            quality = 1 if len(said.split()) < 4 else 2
+            reply, tactic, contradiction, name, gags = None, "none", False, None, []
 
         # The secret ending: stop scamming, and the game stops too.
         if not self.demo and (confessed or re.search(CONFESSION, said, re.I)):
@@ -454,9 +456,8 @@ class Game:
         elif spotted != "none" and (tactic == "none" or self.demo):
             tactic = spotted
         if not reply:
-            canned = self.next_canned()
-            reply = CANNED_REPLIES[canned]
-            reply_en = CANNED_EN[canned]
+            too_soon = tactic == "ask" and not self.story_built
+            canned, reply, reply_en = self.next_fallback("ask_soon" if too_soon else tactic)
 
         move = self.score_move(tactic, quality, contradiction)
         if trapping and not contradiction:
@@ -532,6 +533,50 @@ CANNED_EN = [
     "Wait, let me put my glasses on. I can't hear properly without them.",
     "Leave all that. My knee has hurt since yesterday. Know a good doctor?",
 ]
+
+# Recorded lines that still answer the kind of thing the player said, for when the
+# LLM can't. (clip id, what she says, English subtitle)
+FALLBACK_LINES = {
+    "authority": [
+        ("अच्छा, बड़े साहब हो! तो साहब जी, आपकी माँ को पता है आप दादियों को फ़ोन करते हो?", "Oh, a big officer! So, sir, does your mother know you phone grandmothers?"),
+        ("इतना बड़ा ऑफ़िसर, और मुझ बुढ़िया को ख़ुद फ़ोन? तेरे ऑफ़िस में चपरासी नहीं है क्या?", "Such a big officer, phoning an old woman himself? Is there no peon in your office?"),
+        ("हाय, सरकारी आदमी! तो ये भी बता, मेरी पेंशन हर बार लेट क्यों आती है?", "Oh, a government man! Then also tell me why my pension is always late."),
+    ],
+    "fear": [
+        ("अरे बाप रे! रुक, पहले घुटने को बता दूँ, वही सबसे पहले डरता है।", "Oh my! Wait, let me tell my knee first. It's always the first to panic."),
+        ("मुझे जेल? वहाँ खाना टाइम पे मिलता है? फिर तो सोचना पड़ेगा।", "Me, in jail? Do they serve food on time? Then I'll have to think about it."),
+        ("इतना मत डरा बेटा। मेरी उम्र में तो सीढ़ियाँ इससे ज़्यादा डराती हैं।", "Don't scare me so much, beta. At my age, even stairs are scarier."),
+    ],
+    "urgency": [
+        ("इतनी जल्दी? बेटा, मेरे घुटने अभी पिछले हफ़्ते की जल्दी से नहीं उबरे।", "In such a hurry? Beta, my knees haven't recovered from last week's hurry."),
+        ("जल्दी में तो सिर्फ़ कुकर फटता है, बेटा। तू साँस ले।", "Only pressure cookers rush, beta, and they explode. Breathe."),
+        ("टाइम नहीं है? फिर तूने खाना कब खाया? या वो भी नहीं खाया?", "No time? Then when did you eat? Or haven't you eaten either?"),
+    ],
+    "secrecy": [
+        ("किसी को ना बताऊँ? बेटा, मेरे पेट में तो शादी की बात भी दो मिनट नहीं टिकती।", "Tell no one? Beta, even wedding gossip doesn't last two minutes with me."),
+        ("राज़ की बात? रुक, शर्मा जी को भी बुला लूँ, उनको राज़ बहुत पसंद हैं।", "A secret? Wait, let me call Sharma ji too. He loves secrets."),
+        ("गुप्त रखूँ? इस मोहल्ले में तो मेरी दवाई तक की ख़बर सबको है।", "Keep it secret? This whole neighbourhood even knows my medicines."),
+    ],
+    "rapport": [
+        ("इतना मीठा बोलता है! पक्का कुछ माँगेगा। मेरा पप्पू भी ऐसे ही बोलता है।", "So sweet! You definitely want something. That's how my Pappu talks too."),
+        ("तू तो बड़ा अच्छा लड़का है। अच्छे लड़के की शादी हुई कि नहीं?", "You're such a nice boy. Has the nice boy got married yet?"),
+        ("मदद करेगा? तो पहले मेरा चश्मा ढूँढ दे, फिर बात करेंगे।", "You'll help? Then first find my glasses, and we'll talk."),
+    ],
+    "ask": [
+        ("OTP, OTP! ये OTP खाने की चीज़ है क्या जो सबको चाहिए?", "OTP, OTP! Is it food, that everyone wants some?"),
+        ("फ़ोन पर मैसेज तो बहुत आते हैं। रुक, चश्मा लगा के देखती हूँ।", "I get lots of messages on my phone. Wait, let me put on my glasses."),
+        ("हाँ हाँ, वो नंबर वाला मैसेज। पहले ये बता, तूने खाना खाया?", "Yes, yes, that message with the number. First tell me, have you eaten?"),
+    ],
+    "ask_soon": [
+        ("अभी तो तूने ठीक से नमस्ते भी नहीं की, और सीधा OTP? थोड़ी शरम कर।", "You haven't even said a proper hello, and straight to OTP? Have some shame."),
+        ("पहली बात में ही OTP? बेटा, पहले ये तो बता, तू है कौन?", "OTP right away? Beta, first tell me who you even are."),
+    ],
+}
+FALLBACKS = {
+    bank: [(f"fallback_{bank}_{i}", text, english) for i, (text, english) in enumerate(lines)]
+    for bank, lines in FALLBACK_LINES.items()
+}
+FALLBACKS["any"] = [(f"canned_{i}", CANNED_REPLIES[i], CANNED_EN[i]) for i in range(len(CANNED_REPLIES))]
 
 FALLBACK_PATTERNS = [
     ("ask", ASK_PATTERN),
