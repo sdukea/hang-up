@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config, game, scoring, tts
+from . import character, config, game, scoring, tts
 from .storage import store
 from .stt import PrismaStream
 
@@ -177,12 +177,12 @@ async def start_game(body: Start, request: Request):
         _stats_dirty = True
     greet = "greet_back" if g.returning_name else f"greet_{g.mood_key}_{0 if g.demo else random.randrange(2)}"
     return {
-        "id": g.id, "seconds": game.GAME_SECONDS, "mood": g.mood_key, "mood_name": g.mood["name"],
-        "tagline": g.mood["tagline"], "twist": g.twist["label"], "greet": greet,
+        "id": g.id, "seconds": game.GAME_SECONDS, "mood": g.mood_key, "name": character.display_name(g.character, "en"), "greet": greet,
         "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
         "story_built": g.story_built, "demo": g.demo, "lang": g.lang,
         "code": g.code, "daily": g.daily, "boss_off": g.boss_off,
+        **({"debug": character.debug(g.character)} if config.DEBUG else {}),
     }
 
 
@@ -368,12 +368,9 @@ async def submit_score(game_id: str, body: Submit):
 @app.get("/api/daily")
 async def daily_board():
     date = today()
-    code = game.daily_code(date)
-    mood = game.MOODS[game.MOOD_KEYS[int(code[0])]]
-    twist = game.TWISTS[game.TWIST_KEYS[int(code[1])]]
     board = await load_board(date)
-    return {"date": date, "code": code, "mood": mood["name"], "tagline": mood["tagline"], "twist": twist["label"],
-            "top": board[:10], "players": len(board)}
+    # Who picks up stays a secret until she does.
+    return {"date": date, "top": board[:10], "players": len(board)}
 
 
 @app.websocket("/ws/listen")

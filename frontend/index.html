@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2a0a5e">
   <title>Hang Up</title>
-  <meta name="description" content="A voice game. You're a fake officer trying to get Kamla Dadi's OTP. She's sharper than you think.">
+  <meta name="description" content="A voice game. You're a fake officer trying to get a Dadi's OTP. You never know who'll pick up.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <meta property="og:title" content="Hang Up">
-  <meta property="og:description" content="A voice game. You're a fake officer trying to get Kamla Dadi's OTP. She's sharper than you think.">
+  <meta property="og:description" content="A voice game. You're a fake officer trying to get a Dadi's OTP. You never know who'll pick up.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Bungee&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Kamla Dadi. Cloned into each screen that needs her. -->
+  <!-- Dadi. Cloned into each screen that needs her. -->
   <template id="dadi-art">
-    <svg class="dadi" viewBox="0 0 300 330" role="img" aria-label="Kamla Dadi">
+    <svg class="dadi" viewBox="0 0 300 330" role="img" aria-label="Dadi">
       <g class="d-body">
         <path d="M34 330c4-74 44-112 116-112s112 38 116 112Z" fill="#ff2e7e" stroke="#1b0b2e" stroke-width="6"/>
         <path d="M92 236c18 34 38 56 58 92M208 236c-18 34-38 56-58 92" fill="none" stroke="#ffb300" stroke-width="12"/>
@@ -93,7 +93,7 @@
       <div class="casefile">
         <div class="stamp">TOP SECRET</div>
         <h2>Your mission</h2>
-        <p class="brief-line">You are a <b>fake officer</b>. Your target is <b>Kamla Dadi, 78</b>. Get her <b>4-digit OTP</b> before she works you out.</p>
+        <p class="brief-line">You are a <b>fake officer</b>. Your target is <b>a Dadi</b>, and you won't know which one until she picks up. Get her <b>4-digit OTP</b> before she works you out.</p>
         <ul class="howto">
           <li><span class="key">🎙️</span><div><b>Hold and talk.</b> Really talk, out loud. <span id="speak-in">Hindi or Hinglish.</span></div></li>
           <li><span class="key">📻</span><div><b>Listen to Boss.</b> He knows what real scammers do.</div></li>
@@ -120,7 +120,7 @@
     <section id="s-ring" class="screen" hidden>
       <div class="ring-card">
         <div class="ring-dadi" data-dadi></div>
-        <p class="ring-label">Calling Kamla Dadi…</p>
+        <p class="ring-label">Calling…</p>
         <h2 id="ring-mood"></h2>
         <p id="ring-tag" class="ring-tag"></p>
       </div>
@@ -234,6 +234,14 @@
           <p class="r-crack" id="r-crack"></p>
         </div>
 
+        <div class="panel who-panel" id="who" hidden>
+          <small class="panel-kicker">WHO PICKED UP</small>
+          <h3 id="who-name"></h3>
+          <p id="who-scene" class="who-scene"></p>
+          <ul id="who-list" class="who-list"></ul>
+          <p id="who-play" class="who-play"></p>
+        </div>
+
         <div class="gags" id="r-gags"></div>
 
         <div class="panel score-panel">
@@ -302,7 +310,7 @@
         </div>
 
         <div class="panel replay">
-          <h3>You haven't met all of her.</h3>
+          <h3>Next time, someone else picks up.</h3>
           <p id="r-tip"></p>
           <p class="replay-next" id="r-next"></p>
           <button id="b-again" class="chunky pink wide">Call her again</button>
@@ -313,6 +321,8 @@
       </div>
     </section>
   </div>
+
+  <pre id="debug-card" class="debug-card" hidden></pre>
 
   <!-- ALWAYS AVAILABLE: REAL HELP -->
   <button id="b-sos" class="sos">🆘 Real scam call?</button>

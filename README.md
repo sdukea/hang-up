@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/hero.png" alt="Hang Up. A voice game. Get Kamla Dadi's OTP. If you can." width="100%">
+  <img src="docs/readme/hero.png" alt="Hang Up. A voice game. Get Dadi's OTP. If you can." width="100%">
 </p>
 
 <p align="center">
@@ -73,11 +73,11 @@ Oh, *interesting*. Say this in the real game and see what happens.
 
 <img src="docs/readme/screens.png" alt="Real screens from a demo call, with Dadi's real replies. She teases the caller about marriage, cuts the caller off for asking for the OTP too early, and gives up the first digit." width="100%">
 
-## The five Dadis
+## Who picks up?
 
-Which one you get depends on when you call, and each falls for different things.
+You never know. Every call, a different grandmother answers, built from her situation (mid-puja, cooking, half out of the door, hunting for her glasses), her temperament (chatty, sceptical, blunt, anxious, proud...), who else is around, today's mood, and one or two hidden traits: perfect recall, a habit of checking things herself, digging in under pressure.
 
-<img src="docs/readme/dadis.png" alt="Puja Dadi, 5 AM to 10 AM: morning puja, she will not be rushed. Serial Dadi, 10 AM to 2 PM: her saas-bahu serial is on, good luck. Sleepy Dadi, 2 PM to 5 PM: afternoon nap, she mishears everything. Kitty Party Dadi, 5 PM to 9 PM: her friends are over, she has backup. Lonely Night Dadi, 9 PM to 5 AM: can't sleep, wants to talk, for hours. Plus a random twist: hearing-aid battery low, grandson Pappu is home, a neighbour warned her about scams, cooking at full blast, or pension day and a great mood." width="100%">
+Nothing tells you which. You work her out from how she talks, and what lands or backfires changes from Dadi to Dadi. After the call, **Who picked up** reveals who she really was and the clue behind each trait, so next time you spot it sooner.
 
 ## The playbook
 
@@ -177,7 +177,7 @@ uv run uvicorn backend.main:app --port 8000
 
 Open [localhost:8000](http://localhost:8000), allow the microphone, hold the button and start lying.
 
-- **Meet another Dadi:** add `?hour=23`, using any hour from 0 to 23.
+- **Meet the same Dadi again:** open a challenge link (`?c=` plus her code). Developers can start the server with `DEBUG=1` to see each Dadi's hidden profile during the call; never set it on a public deployment.
 - **No microphone:** the game switches to typing.
 
 <details>
@@ -206,7 +206,7 @@ You can get all four digits. Whether that counts as winning is another matter. A
 </details>
 
 <details>
-<summary><b>Is Kamla Dadi real?</b></summary>
+<summary><b>Are the Dadis real?</b></summary>
 
 No. Everyone in the game is fictional. The people who get these calls are not.
 

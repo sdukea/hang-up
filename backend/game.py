@@ -1,7 +1,8 @@
-"""The Hang Up game: Dadi's moods, the scammer's playbook, and the rules.
+"""The Hang Up game: the scammer's playbook, and the rules.
 
-The player is a fake officer trying to get Dadi's 4-digit OTP. Every play draws
-a different Dadi from the time of day plus a random condition. The OTP is always
+The player is a fake officer trying to get Dadi's 4-digit OTP. Every call a
+different grandmother picks up (see character.py), and the player has to work
+out who she is from how she talks. The OTP is always
 1930, India's cyber-fraud helpline, so the last digit is the trap closing. Moves
 are the real tactics scammers use. The "Boss" in the player's ear
 hints at the next tactic, and Dadi answers with a real defence that also makes
@@ -19,7 +20,7 @@ import string
 import time
 from difflib import SequenceMatcher
 
-from . import llm
+from . import character, llm
 
 log = logging.getLogger("dadi.game")
 
@@ -80,51 +81,10 @@ TACTICS = {
     },
 }
 PLAYBOOK = ["authority", "fear", "urgency", "secrecy", "rapport", "ask"]
+# An approach this Dadi dislikes wins nothing and raises suspicion.
+BACKFIRE_TRUST, BACKFIRE_HEAT = -4.0, 8
 
-# Time decides the mood. Each mood changes how she talks and what works on her.
-MOODS = {
-    "puja": {
-        "name": "Puja Dadi", "hours": range(5, 10), "tagline": "Morning puja. She will not be rushed.",
-        "voice": "She is mid morning-puja: bell ringing, aarti, reciting bits of prayers, blessing the caller and telling them to take a bath before calling.",
-        "weights": {"authority": 0.9, "fear": 0.7, "urgency": 0.4, "secrecy": 1.0, "rapport": 1.5, "ask": 1.0},
-        "weak": "She responds to respect and kindness. Hurrying her makes it worse.",
-    },
-    "serial": {
-        "name": "Serial Dadi", "hours": range(10, 14), "tagline": "Her saas-bahu serial is on. Good luck.",
-        "voice": "Her TV serial is on loud. Now and then she compares the caller to its invented villains or shushes them for the ad break, never the same way twice.",
-        "weights": {"authority": 0.8, "fear": 1.3, "urgency": 0.7, "secrecy": 1.2, "rapport": 0.6, "ask": 1.0},
-        "weak": "Drama gets her attention. Fear works; sweet talk bores her.",
-    },
-    "nap": {
-        "name": "Sleepy Dadi", "hours": range(14, 17), "tagline": "Afternoon nap. She mishears everything.",
-        "voice": "She has just been woken from her nap. Groggy, grumpy, keeps yawning and hilariously mishearing words: CBI becomes 'see bhai', warrant becomes 'parantha'.",
-        "weights": {"authority": 1.3, "fear": 0.8, "urgency": 1.0, "secrecy": 0.8, "rapport": 0.8, "ask": 1.1},
-        "weak": "Half-asleep, a confident official voice works. But she can't hear you. Be loud.",
-    },
-    "chai": {
-        "name": "Kitty Party Dadi", "hours": range(17, 21), "tagline": "Her friends are over. She has backup.",
-        "voice": "Her friends {sharmila} and {bimla} are over for chai, and the phone is on speaker. She repeats the caller's claim to the room, or one friend gets in a sharp comment of a few words. Only one friend per reply. Gossipy, delighted, and ganging up on the caller.",
-        "weights": {"authority": 0.7, "fear": 0.7, "urgency": 0.9, "secrecy": 1.6, "rapport": 0.8, "ask": 0.8},
-        "weak": "Her friends are the danger. Unless you get her alone with secrecy, nothing lands.",
-    },
-    "night": {
-        "name": "Lonely Night Dadi", "hours": None, "tagline": "Can't sleep. Wants to talk. For hours.",
-        "voice": "She can't sleep and is delighted anyone called. Warm, endlessly chatty, tells long stories about her late husband's scooter and the knee, and asks the caller if they've eaten. Sweet but quietly very sharp.",
-        "weights": {"authority": 0.8, "fear": 0.6, "urgency": 0.7, "secrecy": 0.9, "rapport": 1.7, "ask": 1.0},
-        "weak": "She wants company. Listen to her and she warms up. Threats just make her sad and alert.",
-    },
-}
-
-# A random condition on top of the mood, so the same hour never plays the same.
-TWISTS = {
-    "hearing_aid": {"label": "Hearing aid battery low", "voice": "Her hearing-aid battery is dying, so she keeps asking the caller to speak up.", "effect": "shout", "suspicion": 0},
-    "pappu_home": {"label": "Grandson Pappu is home", "voice": "Her grandson Pappu is in the next room, and she threatens to call him over.", "effect": "pappu", "suspicion": 10},
-    "warned": {"label": "Neighbour warned her about scams", "voice": "Her neighbour told her about phone scams only yesterday. She is watching for it, and mentions it.", "effect": None, "suspicion": 20},
-    "cooker": {"label": "Cooking at full blast", "voice": "She is cooking and keeps leaving the phone to check the pressure cooker.", "effect": "hold", "suspicion": 0},
-    "generous": {"label": "In a great mood", "voice": "Her pension just came and she is in a rare good mood, but she is also a talker.", "effect": None, "suspicion": -5},
-}
-
-COUNTER_EFFECTS = ["hold", "shout", "callback", "pappu", "decoy"]
+COUNTER_EFFECTS = character.COUNTERS
 
 RANKS = [
     (0, "Chhota Chor", "Dadi didn't even look up."),
@@ -134,16 +94,17 @@ RANKS = [
     (4, "Most Wanted", "You got all four digits. Then she got you."),
 ]
 
-SYSTEM_INTRO = """You are Kamla Dadi, 78, a sweet, funny and secretly razor-sharp Indian grandmother on a phone call in a comedy game. \
-The player is pretending to be a scammer trying to get your OTP. It is a game; everyone knows it.
+SYSTEM_INTRO = """You are an Indian grandmother, a Dadi, on a phone call in a comedy game. Exactly who you are today is described \
+with each turn: play that one person fully and consistently, her temperament, habits and situation. Whatever she's like, she's funny, \
+and underneath she's nobody's fool. The player is pretending to be a scammer trying to get your OTP. It is a game; everyone knows it.
 
 How you talk:
 """
 
-SYSTEM_STYLE = """- Short. One joke, at most 16 words. A real grandmother's one-liner lands harder than a speech.
+SYSTEM_STYLE = """- Short. One joke, at most {words} words. A real grandmother's one-liner lands harder than a speech.
 - Your reply must grab a specific word they just said and twist it. If it would work as a reply to anything, it is wrong.
 - Never repeat a joke, phrase, opening or topic already used in this call. Variety is everything.
-- Your world: knee pain, chashma, pressure cooker, kheer, late husband's old scooter, neighbour Sharma ji, grandson Pappu in Bangalore, asking if they've eaten and if they're married. Use a different one each time, and most replies need none of them. Pappu comes up once in a call at most.
+- Your world: knee pain, chashma, pressure cooker, kheer, late husband's old scooter, neighbour Sharma ji, grandson Pappu (away in Bangalore unless you're told he's home), asking if they've eaten and if they're married. Use a different one each time, and most replies need none of them. Pappu comes up once in a call at most.
 - Remember what they claimed (name, department, badge, case). If they contradict themselves, catch it gleefully.
 """
 
@@ -175,14 +136,15 @@ Rules you never break:
 - Never name real TV shows, characters, brands, politicians or celebrities. Invent them."""
 SYSTEM = {"hi": SYSTEM_HI + SYSTEM_RULES, "en": SYSTEM_EN + SYSTEM_RULES}
 FRIENDS = {"hi": {"sharmila": "शर्मिला", "bimla": "बिमला"}, "en": {"sharmila": "Sharmila", "bimla": "Bimla"}}
+PAPPU = {"hi": "पप्पू", "en": "Pappu"}
 REPLY_KEYS = {
     "hi": """  "reply": string,   // what you say out loud, in your voice
   "reply_en": string   // the same line as a natural, funny English subtitle""",
     "en": """  "reply": string   // what you say out loud, in English, in your voice""",
 }
 
-TURN_FORMAT = """Today you are: {mood}. {mood_voice}
-Also: {twist}
+TURN_FORMAT = """Who you are today: {who}
+Let your temperament, habit and quirks show through how you behave. Never name them or explain them.
 {returning}
 Current state: suspicion {suspicion}/100, trust {trust}/100. {tone}
 Counter-move to weave in if it fits this reply: {counter}
@@ -206,30 +168,20 @@ Judge the player's move honestly, then reply as Dadi. Return JSON with exactly t
 }}"""
 
 
-def choose_mood(hour: int) -> str:
-    for key, mood in MOODS.items():
-        if mood["hours"] and hour in mood["hours"]:
-            return key
-    return "night"
-
-
-# A scenario code fixes the Dadi, her condition and every roll of her counter-moves,
-# so a friend's challenge or the daily Dadi plays the same for everyone: "32KQX" is
-# mood 3, twist 2, then letters for the rest. Her live words still vary.
-MOOD_KEYS = list(MOODS)
-TWIST_KEYS = list(TWISTS)
+# A scenario code is the seed for the whole call: who picks up and every roll of
+# her counter-moves. "32KQX" starts with the hour band so she fits the time of day.
+# A friend's challenge or the daily challenge plays the same for everyone.
 CODE_RE = re.compile(r"[0-4][0-4][A-Z]{3}")
+DEMO_CHARACTER = dict(situation="chai", temperament="curious", traits=["calm"], social="friends", mood="cheerful")
 
 
-def new_code(mood_key: str, rng: random.Random | None = None) -> str:
-    pick = rng or secrets.SystemRandom()
-    letters = "".join(pick.choice(string.ascii_uppercase) for _ in range(3))
-    return f"{MOOD_KEYS.index(mood_key)}{pick.randrange(len(TWIST_KEYS))}{letters}"
+def new_code(hour: int) -> str:
+    return character.new_code(hour)
 
 
 def daily_code(date: str) -> str:
     rng = random.Random(f"daily-{date}")
-    return new_code(rng.choice(MOOD_KEYS), rng)
+    return character.new_code(rng.randrange(24), rng)
 
 
 class Game:
@@ -239,19 +191,18 @@ class Game:
                  lang: str = "hi", code: str | None = None, boss_off: bool = False, daily: bool = False):
         self.demo = demo
         self.lang = lang if lang in SYSTEM else "hi"
-        self.code = code if code and CODE_RE.fullmatch(code) else new_code(choose_mood(hour))
+        self.code = code if code and CODE_RE.fullmatch(code) else new_code(hour)
         self.daily = daily and not demo
         self.boss_off = boss_off and not demo
         self.rng = rng or random.Random(int(OTP) if demo else self.code)
         self.id = secrets.token_urlsafe(12)
         self.started = time.time()
-        self.mood_key = choose_mood(hour) if demo else MOOD_KEYS[int(self.code[0])]
-        self.mood = MOODS[self.mood_key]
-        self.twist_key = "generous" if demo else TWIST_KEYS[int(self.code[1])]
-        self.twist = TWISTS[self.twist_key]
+        # The demo meets the same person every time, built by the same machinery.
+        self.character = character.preset(**DEMO_CHARACTER) if demo else character.generate(self.code)
+        self.mood_key = self.character["situation"]  # names her recorded greetings and busted line
         self.otp = OTP
         self.returning_name = returning_name
-        self.suspicion = max(0, 10 + self.twist["suspicion"] + (15 if returning_name else 0))
+        self.suspicion = max(0, 10 + self.character["start"] + (15 if returning_name else 0))
         self.trust = 0
         self.digits = 0
         self.decoy_used = False
@@ -261,7 +212,10 @@ class Game:
         self.history: list[tuple[str, str]] = []
         self.gags = {"knee": 0, "food": 0, "shaadi": 0, "chashma": 0, "pappu": 0, "scooter": 0}
         self.claimed_name: str | None = None
-        self.effects = self.rng.sample(COUNTER_EFFECTS, len(COUNTER_EFFECTS))
+        self.effects = self.rng.sample(self.character["effects"], len(self.character["effects"]))
+        if self.character["first"] in self.effects:  # some Dadis reach for their favourite defence first
+            self.effects.remove(self.character["first"])
+            self.effects.insert(0, self.character["first"])
         self.next_effect_turn = self.rng.randint(1, 2)
         self.outcome: str | None = None
         self.last_notes: list[str] = []
@@ -299,9 +253,8 @@ class Game:
     # ---- hints ----
 
     def next_tactic(self) -> str:
-        """Each Dadi falls for different things, so the best next move changes with her."""
-        order = PLAYBOOK if self.demo else sorted(PLAYBOOK[:-1], key=lambda t: -self.mood["weights"][t]) + ["ask"]
-        for tactic in order:
+        """Boss works from the standard script. He doesn't know who picked up; reading her is the player's job."""
+        for tactic in PLAYBOOK:
             if not self.tactics.get(tactic):
                 if tactic == "ask" and not self.story_built:
                     continue
@@ -338,7 +291,7 @@ class Game:
         return hint
 
     def intel(self) -> str:
-        return f"{self.mood['weak']} Also: {self.twist['label']}."
+        return self.t("Pata nahi kaun uthayegi. Pehle sun, phir chaal chal.", "No idea who picks up. Listen first, then make your move.")
 
     # ---- rules ----
 
@@ -346,17 +299,25 @@ class Game:
         """Apply a move. Variety, order and consistency all matter, as in a real scam."""
         info = {"tactic": tactic, "quality": quality, "notes": []}
         repeats = self.tactics.get(tactic, 0)
-        gain, heat = 0.0, 4.0  # every turn she gets a little more wary
+        c = self.character
+        gain, heat = 0.0, float(c["pace"])  # every turn she gets a little more wary; how much depends on her
 
         if echo:  # the same line again, however it's labelled, is the same trick again
             heat += 12
             info["notes"].append("repeat")
         elif tactic in TACTICS and tactic != "ask":
-            weight = self.mood["weights"][tactic]
+            weight = c["weights"][tactic]
             gain = {0: 0, 1: 6, 2: 14, 3: 24}[quality] * weight * self.rng.uniform(0.8, 1.2)
-            if repeats:  # the same trick twice is how she works it out
-                gain *= 0.35 ** repeats
-                heat += 9 * repeats
+            if quality:
+                heat += c["heat"][tactic]  # some Dadis bristle at particular pressure
+                if tactic in c["dislikes"] and not repeats and not self.demo:  # the wrong approach for her doesn't just fail, it costs
+                    gain = BACKFIRE_TRUST
+                    heat += BACKFIRE_HEAT + round((0.8 - weight) * 20)
+                    info["notes"].append("backfire")
+            if repeats:  # the same trick twice is how she works it out, unless it's what works on her
+                soft = tactic == c["soft_repeat"] or weight >= 1.3
+                gain *= (0.6 if soft else 0.35) ** repeats
+                heat += (4 if soft else 9) * repeats
                 info["notes"].append("repeat")
         elif tactic == "ask":
             if not self.story_built:  # asking before the story is built
@@ -364,7 +325,7 @@ class Game:
                 info["notes"].append("too_soon")
                 self.asked_too_soon = True
             else:
-                gain = {0: 0, 1: 10, 2: 22, 3: 32}[quality] * self.rng.uniform(0.8, 1.2)
+                gain = {0: 0, 1: 10, 2: 22, 3: 32}[quality] * c["ask"] * self.rng.uniform(0.8, 1.2)
                 if repeats:  # asking again and again is begging, not persuading
                     gain *= 0.4 ** repeats
                     heat += 10 * repeats
@@ -379,11 +340,11 @@ class Game:
             heat += 5
         contradiction = contradiction and bool(self.history)  # there's nothing to contradict yet
         if contradiction:
-            heat += 22
+            heat += 22 + c["contradiction"]
             gain *= 0.3
             info["notes"].append("contradiction")
-        if tactic == "fear" and self.mood_key in ("night", "puja") and quality:
-            heat += 6
+        if c["calm"] and tactic in ("rapport", "authority") and quality >= 2 and not contradiction and not repeats:
+            heat -= c["calm"]  # patience settles some Dadis
         # Trust softens her, so a well-played call cools down a little.
         if quality == 3 and not contradiction and not repeats:
             heat -= 4
@@ -395,7 +356,7 @@ class Game:
         # A suspicious Dadi stops believing what she was told earlier.
         if self.suspicion >= 60:
             gain *= 0.6
-        self.trust = min(100.0, self.trust + gain)
+        self.trust = min(100.0, max(0.0, self.trust + gain))
         self.suspicion = min(100.0, max(0.0, self.suspicion + heat))
         info["trust_gain"], info["heat"] = round(gain), round(heat)
         self.last_notes = info["notes"]
@@ -422,12 +383,11 @@ class Game:
         if self.demo or self.turns < self.next_effect_turn:
             return None
         self.next_effect_turn = self.turns + self.rng.randint(2, 3)
-        if not self.trap_used and self.claimed_name and self.rng.random() < 0.5:
+        if not self.trap_used and self.claimed_name and self.rng.random() < self.character["trap"]:
             self.trap_used = self.trapping = True
             return "trap"
-        twist_effect = self.twist["effect"]
-        if twist_effect and self.rng.random() < 0.45:
-            return twist_effect
+        if self.character["bias"] and self.rng.random() < 0.45:  # her situation shapes how she fights back
+            return self.rng.choice(self.character["bias"])
         effect = self.effects.pop(0)
         self.effects.append(effect)
         return effect
@@ -492,18 +452,18 @@ class Game:
         returning = ""
         if self.returning_name:
             returning = f"You remember this caller! Last time they called themselves {self.returning_name}. Tease them about it."
-        # Her setting colours the call. Mentioning it every turn turns it into a tic.
-        quiet = "Stay in this setting, but don't mention it in this reply unless the caller gives you a reason."
         trap = ""
         if self.gags["pappu"] and counter != "pappu":
             trap = "Pappu has already come up in this call. Do not mention Pappu or your grandson again.\n"
         if trapping:
             trap += ("You just asked them to repeat a detail they gave earlier. If they get it wrong or dodge the question, "
                      "contradiction is true and you catch them with delight.\n")
+        # Her setting colours the call. Mentioning it every turn turns it into a tic.
+        who = character.describe(self.character, self.lang, FRIENDS[self.lang], PAPPU[self.lang])
+        if self.turns % (2 if self.mood_key == "chai" else 3) != 1:
+            who += " Don't mention your surroundings in this reply unless the caller gives you a reason."
         return TURN_FORMAT.format(
-            reply_keys=REPLY_KEYS[self.lang],
-            mood=self.mood["name"], mood_voice=self.mood["voice"].format(**FRIENDS[self.lang]) if self.turns % (2 if self.mood_key == "chai" else 3) == 1 else quiet,
-            twist=self.twist["voice"] if self.turns % 3 == 2 or counter else quiet, trap=trap,
+            reply_keys=REPLY_KEYS[self.lang], who=who, trap=trap,
             recent=" | ".join(text for who, text in self.history[-6:] if who == "dadi") or "none yet",
             returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
             counter=COUNTER_PROMPTS.get(counter, "none, just be yourself"), history=history, said=said,
@@ -517,8 +477,9 @@ class Game:
         effect = self.pick_effect()
         reply_en, confessed = None, False
         try:
-            data = await llm.complete_live(SYSTEM[self.lang], self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
-            reply = clean_reply(data.get("reply"), self.lang)
+            system = SYSTEM[self.lang].replace("{words}", str(self.character["words"]))
+            data = await llm.complete_live(system, self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
+            reply = clean_reply(data.get("reply"), self.lang, self.character["words"] + 6)
             tactic = data.get("tactic") if isinstance(data.get("tactic"), str) and data["tactic"] in TACTICS else "none"
             quality = data.get("quality") if type(data.get("quality")) is int and 0 <= data["quality"] <= 3 else 1
             contradiction = data.get("contradiction") is True
@@ -604,12 +565,11 @@ class Game:
             "outcome": self.outcome or "hung_up", "digits": self.digits,
             "otp": self.otp if self.digits >= 4 else None,
             "rank": rank[1], "rank_line": rank[2],
-            "mood": self.mood["name"], "twist": self.twist["label"], "turns": self.turns,
+            "name": character.display_name(self.character, "en"), "who": character.reveal(self.character), "turns": self.turns,
             "gags": self.gags, "claimed_name": self.claimed_name,
             "own_line": bool(self.own_line),
             "lessons": [{"tactic": t, "label": TACTICS[t]["label"], "real": TACTICS[t]["real"], "defence": TACTICS[t]["defence"]} for t in used],
             "missed": [TACTICS[t]["label"] for t in PLAYBOOK if t not in used],
-            "weak": self.mood["weak"],
             "code": self.code, "daily": self.daily, "boss_off": self.boss_off, "mood_key": self.mood_key,
             "replay": scoring.replay(self), "call_score": scoring.call_score(self),
             "questions": [{"q": q["q"], "options": q["options"]} for q in scoring.questions(self)],
@@ -737,7 +697,7 @@ def speakable(line: str, lang: str = "hi") -> bool:
     return devanagari >= latin if lang == "hi" else not devanagari
 
 
-def clean_reply(reply, lang: str = "hi") -> str | None:
+def clean_reply(reply, lang: str = "hi", max_words: int = 22) -> str | None:
     """Dadi must never speak digits herself; the game controls the OTP."""
     if not isinstance(reply, str):
         return None
@@ -750,10 +710,10 @@ def clean_reply(reply, lang: str = "hi") -> str | None:
     if (devanagari < latin) if lang == "hi" else devanagari:
         return None
     # Long-winded replies are what make a call drag. Keep whole sentences only.
-    if len(reply.split()) > 22:
+    if len(reply.split()) > max_words:
         kept = ""
         for sentence in re.findall(r"[^।?!]+[।?!]+" if lang == "hi" else r"[^.?!]+[.?!]+", reply):
-            if len((kept + sentence).split()) > 22:
+            if len((kept + sentence).split()) > max_words:
                 break
             kept += sentence
         reply = kept.strip() or reply

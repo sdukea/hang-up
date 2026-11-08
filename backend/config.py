@@ -62,6 +62,10 @@ GAMES_PER_IP_PER_HOUR = int(_env("GAMES_PER_IP_PER_HOUR", "20"))
 # REDIRECT_TO=https://hangup.onrender.com. Links already shared keep working.
 REDIRECT_TO = _env("REDIRECT_TO").rstrip("/")
 
+# DEBUG=1 (local only) sends each call's hidden character profile to the page.
+# Never set it on a public deployment: it would give away who picked up.
+DEBUG = _env("DEBUG") == "1"
+
 
 def require_key() -> str:
     if not GNANI_API_KEY:

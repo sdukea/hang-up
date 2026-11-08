@@ -52,10 +52,7 @@ const SCRIPT_PARTS = [
   { label: "Isolation", tactics: ["secrecy"], line: "\"Tell nobody\", because one relative can end the scam." },
   { label: "The OTP", tactics: ["ask"], line: "It all builds to this. Nobody genuine ever asks for it." },
 ];
-const NEXT_DADI = [
-  "Morning: Puja Dadi", "Late morning: Serial Dadi", "Afternoon: Sleepy Dadi",
-  "Evening: Kitty Party Dadi", "Night: Lonely Night Dadi",
-];
+const TACTIC_NAMES = { authority: "Fake Authority", fear: "Fear", urgency: "Urgency", secrecy: "Isolation", rapport: "Fake Kindness" };
 
 const PARTS = {
   progress: "Digits", control: "Calm", story: "Story held", speed: "Speed", no_boss: "No Boss",
@@ -399,7 +396,7 @@ setLang(state.lang);
 $("b-start").addEventListener("click", () => {
   unlockAudio();
   sfx.tap();
-  state.mode = state.code ? "challenge" : "free";
+  state.mode = state.code ? "challenge" : challengeCode("seed") ? "seed" : "free";
   show("brief");
 });
 
@@ -411,8 +408,9 @@ $("b-daily").addEventListener("click", () => {
 });
 
 // ?c=32KQX is a friend's scenario: same Dadi, same moves. ?s= is the score to beat.
-function challengeCode() {
-  const c = (new URLSearchParams(location.search).get("c") || "").toUpperCase();
+// ?seed= does the same quietly, for reproducing a character while developing.
+function challengeCode(param = "c") {
+  const c = (new URLSearchParams(location.search).get(param) || "").toUpperCase();
   return /^[0-4][0-4][A-Z]{3}$/.test(c) ? c : null;
 }
 
@@ -429,7 +427,7 @@ function setupTitle() {
   fetch("/api/daily").then((r) => (r.ok ? r.json() : null)).then((d) => {
     if (!d) return;
     state.daily = d;
-    $("daily-name").textContent = d.mood;
+    $("daily-name").textContent = "same Dadi for everyone";
     $("b-daily").hidden = false;
   }).catch(() => {});
 }
@@ -619,7 +617,7 @@ async function runCall() {
       demo: demoMode(),
       lang: state.lang,
       daily: state.mode === "daily",
-      code: state.mode === "challenge" ? state.code : null,
+      code: state.mode === "challenge" ? state.code : state.mode === "seed" ? challengeCode("seed") : null,
       boss_off: $("boss-off").checked,
       returning_name: returning,
       quiz: state.quizBefore,
@@ -643,8 +641,9 @@ async function runCall() {
   buildCallScreen(data, hasMic);
   preloadClips();
 
-  $("ring-mood").textContent = data.mood_name;
-  $("ring-tag").textContent = `${data.daily ? "Today's challenge · " : state.mode === "challenge" ? "Challenge · " : ""}${data.tagline}`;
+  $("ring-mood").textContent = data.name;
+  $("ring-tag").textContent = `${data.daily ? "Today's challenge · " : state.mode === "challenge" ? "Challenge · " : ""}You don't know her. Yet.`;
+  showDebug(data.debug);
   show("ring");
   sfx.ring();
   if (hasMic) await Promise.race([openListener(), sleep(4000)]);
@@ -654,9 +653,8 @@ async function runCall() {
 
   show("game");
   if (data.boss_off) setBossText(data.boss.text, "· No Boss");
-  else setBossText(data.intel, `· Intel on ${data.mood_name}`);
+  else setBossText(data.intel, "· Before she picks up");
   setSuspicion(data.suspicion);
-  pop(data.mood_name.toUpperCase(), data.twist);
   if (!hasMic) setTimeout(() => pop(mic.blocked ? "YOUR MIC IS BLOCKED" : "NO MICROPHONE", mic.blocked ? "Allow it in your browser settings, or just type." : "No problem. Just type your lines.", "move"), 1200);
   await say(clip(data.greet));
   if (state.over) return;
@@ -959,6 +957,9 @@ function showMoveResult(r) {
     pop("TOO SOON!", "You asked before building a story", "bad");
     sfx.bad();
     jolt();
+  } else if (notes.includes("backfire")) {
+    pop("SHE DIDN'T LIKE THAT", "That approach puts this Dadi off", "bad");
+    sfx.bad();
   } else if (notes.includes("repeat")) {
     pop("SAME TRICK AGAIN?", "Dadi noticed. Try something else.", "bad");
     sfx.warn();
@@ -1162,7 +1163,7 @@ async function endCall(outcome) {
   } catch (err) {
     console.warn(err);
   }
-  state.report = report || { outcome, digits: 0, rank: "Chhota Chor", rank_line: "", gags: {}, lessons: [], missed: [], weak: "", mood: state.game.mood_name, twist: state.game.twist };
+  state.report = report || { outcome, digits: 0, rank: "Chhota Chor", rank_line: "", gags: {}, lessons: [], missed: [], name: state.game.name };
   if (report && report.claimed_name) safeSet("dadi_name", report.claimed_name);
   const final = state.report.outcome || outcome;
 
@@ -1231,7 +1232,7 @@ async function crackedEnding() {
   await sleep(1400);
   $("crack-text").textContent = "You weren't learning how to get an OTP. You were learning what happens around one.";
   await sleep(3200);
-  $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
+  $("crack-text").textContent = `${state.game.name} is fictional. Real grandmothers don't get this ending.`;
   await sleep(2600);
   $("crack-text").textContent = "So make sure yours know the number.";
   await sleep(2200);
@@ -1307,7 +1308,8 @@ function showReport() {
   const r = state.report;
   show("report");
   $("s-report").scrollTop = 0;
-  $("r-mood").textContent = `${r.mood} · ${r.twist}`;
+  $("r-mood").textContent = r.name;
+  renderWho(r.who);
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
   $("r-crack").textContent = state.game.demo ? "" : !r.crack_rate ? "Nobody has got all four digits yet." : `Only ${r.crack_rate}% of callers ever get all four digits.`;
@@ -1360,13 +1362,38 @@ function showReport() {
   $("b-again-daily").hidden = !state.daily || r.daily || state.game.demo;
 
   const missed = r.missed || [];
-  const tip = [r.weak && `${r.mood}: ${r.weak}`, missed.length ? `You never tried: ${missed.join(", ")}.` : ""].filter(Boolean).join(" ");
-  $("r-tip").textContent = tip;
-  $("r-next").textContent = `Next time, try a different hour. ${NEXT_DADI[rand(NEXT_DADI.length)]} plays by different rules.`;
+  $("r-tip").textContent = missed.length ? `You never tried: ${missed.join(", ")}.` : "";
+  $("r-next").textContent = "Another grandmother, another temper, another set of habits. Work her out faster.";
 
   // Dadi says the lesson that fits the last trick you used.
   const last = lessons.length ? lessons[lessons.length - 1].tactic : "fear";
   say(clip(`lesson_${last}`));
+}
+
+// ---------- Who picked up: only revealed once the call is over ----------
+
+function renderWho(who) {
+  $("who").hidden = !who;
+  if (!who) return;
+  $("who-name").textContent = `${who.name}, ${who.age}`;
+  $("who-scene").textContent = who.scene;
+  const items = [{ reveal: who.temperament.label, tell: who.temperament.tell }, ...who.traits];
+  $("who-list").replaceChildren(...items.map((item) => {
+    const li = document.createElement("li");
+    const b = document.createElement("b");
+    b.textContent = item.reveal;
+    const tell = document.createElement("span");
+    tell.textContent = `The clue: ${item.tell}`;
+    li.append(b, tell);
+    return li;
+  }));
+  $("who-play").textContent = `What worked best on her: ${TACTIC_NAMES[who.works]}. What worked worst: ${TACTIC_NAMES[who.fails]}.`;
+}
+
+// Development only: the server sends this when it runs with DEBUG=1.
+function showDebug(profile) {
+  $("debug-card").hidden = !profile;
+  if (profile) $("debug-card").textContent = JSON.stringify(profile, null, 1).replace(/[{}"]/g, "").trim();
 }
 
 // ---------- Nazar Score: the call, plus what you spotted in it ----------
@@ -1450,15 +1477,12 @@ function personalBest(score) {
   const r = state.report;
   const notes = [];
   const best = Number(safeGet("dadi_best") || 0);
-  const moodBest = Number(safeGet(`dadi_best_${r.mood_key}`) || 0);
   if (score > best) {
     safeSet("dadi_best", score);
     notes.push(best ? `New personal best! (was ${best})` : "Your first score. Now beat it.");
   } else {
     notes.push(`Your best: ${best}.`);
   }
-  if (score > moodBest) safeSet(`dadi_best_${r.mood_key}`, score);
-  else notes.push(`Best on ${r.mood}: ${moodBest}.`);
   if (r.daily) {
     const day = istDate();
     const yesterday = istDate(Date.now() - 86400000);
@@ -1574,13 +1598,13 @@ function challengeLink() {
 function shareText() {
   const r = state.report;
   if (state.graded && !state.game.demo) {
-    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.mood} on Hang Up. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
+    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.name} on Hang Up. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
   }
   const line = r.outcome === "reformed"
-    ? "I tried to fool Kamla Dadi on Hang Up. Then I confessed. She asked if I'd eaten."
+    ? `I tried to fool ${r.name} on Hang Up. Then I confessed. She asked if I'd eaten.`
     : r.outcome === "cracked"
-    ? `I got all 4 digits of Kamla Dadi's OTP on Hang Up. Then she got me.`
-    : `I tried to scam ${r.mood} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
+    ? `I got all 4 digits of ${r.name}'s OTP on Hang Up. Then she got me.`
+    : `I tried to fool ${r.name} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
   return `${line} Try it, and learn how the real scam works: ${state.game.demo ? SITE : challengeLink()}`;
 }
 
@@ -1689,7 +1713,7 @@ async function drawCard() {
   g.fillStyle = "#fff3d6";
   g.font = "700 46px 'Baloo 2'";
   const top = Object.entries(r.gags || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])[0];
-  g.fillText(r.mood, 540, 1055);
+  g.fillText(r.name || "", 540, 1055);
   g.font = "700 40px 'Baloo 2'";
   if (state.graded) g.fillText(`Nazar Score ${state.graded.score}/100 · ${state.graded.tier}`, 540, 1112);
   else if (top) g.fillText(`${GAG_LABELS[top[0]].replace(/^\S+\s/, "")} × ${top[1]}`, 540, 1112);
