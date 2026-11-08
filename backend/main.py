@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -27,6 +27,15 @@ log = logging.getLogger("dadi")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
 app = FastAPI(title="Hang Up")
+
+
+@app.middleware("http")
+async def moved(request: Request, call_next):
+    """The game has a new address. The health check stays here so the host keeps this running."""
+    if config.REDIRECT_TO and request.url.path != "/api/health":
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(f"{config.REDIRECT_TO}{request.url.path}{query}", status_code=302)
+    return await call_next(request)
 FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 

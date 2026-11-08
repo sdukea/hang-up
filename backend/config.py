@@ -58,6 +58,10 @@ MAX_SESSION_SECONDS = int(_env("MAX_SESSION_SECONDS", "240"))
 MAX_LISTEN_SESSIONS = int(_env("MAX_LISTEN_SESSIONS", "6"))
 GAMES_PER_IP_PER_HOUR = int(_env("GAMES_PER_IP_PER_HOUR", "20"))
 
+# Set on an old deployment to send every visitor to the new address, e.g.
+# REDIRECT_TO=https://hangup.onrender.com. Links already shared keep working.
+REDIRECT_TO = _env("REDIRECT_TO").rstrip("/")
+
 
 def require_key() -> str:
     if not GNANI_API_KEY:
