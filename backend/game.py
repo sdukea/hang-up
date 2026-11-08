@@ -1,4 +1,4 @@
-"""The Scam Dadi game: Dadi's moods, the scammer's playbook, and the rules.
+"""The Hang Up game: Dadi's moods, the scammer's playbook, and the rules.
 
 The player is a fake officer trying to get Dadi's 4-digit OTP. Every play draws
 a different Dadi from the time of day plus a random condition. The OTP is always

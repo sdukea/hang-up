@@ -1,4 +1,4 @@
-/* Scam Dadi: truck-art colours, thick outlines, chunky buttons. It's a game. */
+/* Hang Up: truck-art colours, thick outlines, chunky buttons. It's a game. */
 :root {
   --ink: #1b0b2e;
   --night: #2a0a5e;
@@ -58,9 +58,16 @@ body {
 .sunburst { position: absolute; inset: -60%; background: repeating-conic-gradient(#5a1cb3 0 12deg, #4a1398 12deg 24deg); animation: spin 60s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .title-top, .title-dadi, .title-bottom { position: relative; z-index: 1; }
-.logo { margin: 0; display: flex; flex-direction: column; align-items: center; font: 400 clamp(62px, 20vw, 92px)/.92 var(--display); }
-.logo span:first-child { color: var(--gold); text-shadow: 4px 4px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink); transform: rotate(-3deg); }
-.logo span:last-child { color: #fff; text-shadow: 5px 5px 0 var(--pink), 8px 8px 0 var(--ink); transform: rotate(2deg); }
+/* HANG over UP, with the red end-call button everyone already knows. */
+.logo { margin: 0; display: flex; flex-direction: column; align-items: center; font: 400 clamp(66px, 22vw, 100px)/.9 var(--display); }
+.logo-hang { color: var(--gold); text-shadow: 4px 4px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink), 7px 7px 0 var(--ink); transform: rotate(-3deg); }
+.logo-up { display: flex; align-items: center; gap: .14em; margin-left: .5em; color: #fff; text-shadow: 5px 5px 0 var(--pink), 8px 8px 0 var(--ink); transform: rotate(2deg); }
+.end-call {
+  display: grid; place-items: center; width: .8em; height: .8em; border-radius: 50%; background: #ff2d2d;
+  border: .07em solid var(--ink); box-shadow: .07em .07em 0 var(--ink), inset 0 -.06em 0 #b3001b; animation: ringing 2.6s ease-in-out infinite;
+}
+.end-call svg { width: 74%; fill: #fff; filter: drop-shadow(0 .02em 0 #8a0014); }
+@keyframes ringing { 0%, 64%, 100% { transform: rotate(0); } 68% { transform: rotate(-14deg); } 72% { transform: rotate(12deg); } 76% { transform: rotate(-9deg); } 80% { transform: rotate(6deg); } 84% { transform: rotate(0); } }
 .kicker { margin: 10px 0 0; text-align: center; font-size: 21px; font-weight: 700; }
 .kicker b { color: var(--gold); }
 .title-dadi { flex: 1; min-height: 0; display: flex; align-items: flex-end; justify-content: center; }
@@ -356,7 +363,7 @@ body.in-game .sos { display: none; }
   .boss { min-height: 52px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sunburst, #b-start, .dadi, .title-dadi .dadi, .dadi-slot .dadi, .steam, .ring-dadi, .ring-dadi .dadi { animation: none !important; }
+  .end-call, .sunburst, #b-start, .dadi, .title-dadi .dadi, .dadi-slot .dadi, .steam, .ring-dadi, .ring-dadi .dadi { animation: none !important; }
   #app.shake { animation: none; }
   .end-flash.siren { animation: none; background: #e0112b55; }
   .m-fill.hot, .timer.low, .talk.alarm { animation: none; }

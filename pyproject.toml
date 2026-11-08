@@ -1,5 +1,5 @@
 [project]
-name = "scam-dadi"
+name = "hang-up"
 version = "0.1.0"
 description = "Try to scam Kamla Dadi by voice. She fights back. Built on Gnani Prisma and Timbre."
 requires-python = ">=3.11"

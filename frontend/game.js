@@ -1,4 +1,4 @@
-// Scam Dadi: the call. The server holds the OTP and the rules; this file is the
+// Hang Up: the call. The server holds the OTP and the rules; this file is the
 // stage, the controls and the sound.
 
 const $ = (id) => document.getElementById(id);
@@ -1574,12 +1574,12 @@ function challengeLink() {
 function shareText() {
   const r = state.report;
   if (state.graded && !state.game.demo) {
-    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.mood} on Scam Dadi. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
+    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.mood} on Hang Up. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
   }
   const line = r.outcome === "reformed"
-    ? "I tried to scam Kamla Dadi on Scam Dadi. Then I confessed. She asked if I'd eaten."
+    ? "I tried to fool Kamla Dadi on Hang Up. Then I confessed. She asked if I'd eaten."
     : r.outcome === "cracked"
-    ? `I got all 4 digits of Kamla Dadi's OTP on Scam Dadi. Then she got me.`
+    ? `I got all 4 digits of Kamla Dadi's OTP on Hang Up. Then she got me.`
     : `I tried to scam ${r.mood} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
   return `${line} Try it, and learn how the real scam works: ${state.game.demo ? SITE : challengeLink()}`;
 }
@@ -1617,7 +1617,29 @@ async function drawCard() {
     g.fillStyle = fill;
     g.fillText(text, x, y);
   };
-  outlined("SCAM DADI", 540, 150, 112, "#ffb300");
+  // The logo: HANG UP and the red end-call button.
+  g.font = "112px Bungee";
+  const word = g.measureText("HANG UP").width;
+  const left = 540 - (word + 130) / 2;
+  outlined("HANG UP", left + word / 2, 150, 112, "#ffb300");
+  const bx = left + word + 70, by = 112;
+  g.fillStyle = "#1b0b2e";
+  g.beginPath();
+  g.arc(bx + 7, by + 7, 54, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#ff2d2d";
+  g.strokeStyle = "#1b0b2e";
+  g.lineWidth = 8;
+  g.beginPath();
+  g.arc(bx, by, 50, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  g.save();
+  g.translate(bx - 36, by - 36);
+  g.scale(3, 3);
+  g.fillStyle = "#fff";
+  g.fill(new Path2D(document.querySelector(".end-call path").getAttribute("d")));
+  g.restore();
 
   const art = new Image();
   const svg = document.querySelector("#s-title .dadi").cloneNode(true);
@@ -1689,7 +1711,7 @@ function saveFile(blob, name) {
 $("b-share").addEventListener("click", async () => {
   sfx.tap();
   const blob = await drawCard();
-  const file = new File([blob], "scam-dadi.png", { type: "image/png" });
+  const file = new File([blob], "hang-up.png", { type: "image/png" });
   const text = shareText();
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1699,7 +1721,7 @@ $("b-share").addEventListener("click", async () => {
   } catch (err) {
     if (err.name === "AbortError") return;
   }
-  saveFile(blob, "scam-dadi.png");
+  saveFile(blob, "hang-up.png");
   try { await navigator.clipboard.writeText(text); } catch (err) { console.warn(err); }
   pop("CARD SAVED, TEXT COPIED", "", "good");
   $("b-share").textContent = "Saved! Text copied";

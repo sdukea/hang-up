@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/hero.png" alt="Scam Dadi" width="100%">
+  <img src="docs/readme/hero.png" alt="Hang Up. A voice game. Get Kamla Dadi's OTP. If you can." width="100%">
 </p>
 
 <p align="center">
@@ -95,7 +95,7 @@ Her counter-moves are real defences in disguise.
 
 <img src="docs/readme/ranks.png" alt="Five ranks by digits won. 0: Chhota Chor, Dadi didn't even look up. 1: Call Centre Trainee, you got one digit, she let you. 2: Fake Inspector, halfway there, then she got bored. 3: Almost Dangerous, one digit away, Dadi is impressed and calling Pappu. 4: Most Wanted, you got all four digits, then she got you." width="100%">
 
-<img src="docs/readme/share.png" alt="A Most Wanted share card with ticked digit tiles. Brag about it: every call ends with a card made for sharing, and it hides your digits so nobody gets the ending spoiled. A hidden rank: there's one that isn't on the staircase, and it takes something you probably won't think to try." width="100%">
+<img src="docs/readme/share.png" alt="A Hang Up share card: Most Wanted, with ticked digit tiles. Dare a friend: every call ends with your Nazar Score and a card that hides your digits; send it, and they get your exact Dadi. A hidden rank: there's one that isn't on the staircase, and it takes something you probably won't think to try." width="100%">
 
 ## The twist
 
@@ -167,8 +167,8 @@ Then **your run**, moment by moment: what each move did to her trust and suspici
 You'll need [uv](https://docs.astral.sh/uv/), a [Gnani API key](https://app.gnani.ai/voice), and any OpenAI-compatible LLM.
 
 ```bash
-git clone https://github.com/sdukea/scam-dadi.git
-cd scam-dadi
+git clone https://github.com/sdukea/hang-up.git
+cd hang-up
 cp .env.example .env   # add your Gnani key and LLM settings
 uv sync
 uv run python -m scripts.make_voice   # voices any missing lines

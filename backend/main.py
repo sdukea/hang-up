@@ -1,4 +1,4 @@
-"""Scam Dadi backend: runs each call, and proxies microphone audio to Prisma.
+"""Hang Up backend: runs each call, and proxies microphone audio to Prisma.
 
 The OTP and the scoring live here, so a player can't read them from the page.
 Browsers can't set the headers Prisma needs, and this keeps the API key private.
@@ -26,7 +26,7 @@ from .stt import PrismaStream
 log = logging.getLogger("dadi")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
-app = FastAPI(title="Scam Dadi")
+app = FastAPI(title="Hang Up")
 FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 

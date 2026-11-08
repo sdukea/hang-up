@@ -4,6 +4,8 @@
 # /api/health every 5 minutes to keep the game awake.
 services:
   - type: web
+    # The game is now called Hang Up. The service keeps its first name so the
+    # public URL, scam-dadi.onrender.com, stays the same.
     name: scam-dadi
     runtime: docker
     plan: free
