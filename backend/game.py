@@ -25,7 +25,7 @@ GAME_SECONDS = 200
 OTP = "1930"
 DIGIT_THRESHOLDS = [12, 35, 58, 80]
 STORY_MOVES = 3  # different tactics she needs to hear before an OTP ask lands
-OTP_WORD = r"o\s*t\s*p\b|ओ\s*टी\s*पी"
+OTP_WORD = r"\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]"
 CONFESSION = r"scammer h(oo|u)n|स्कैमर हूँ|fake h(oo|u)n|officer nah[ie]+\s*h(oo|u)n|(ऑफिसर|अफ़सर|अफसर) नहीं हूँ"
 # Demo mode: the same call plays the same way every time, while Prisma, Timbre and
 # Dadi's replies stay live. Fear earns digit 1, secrecy 2, kindness 3, the ask 4.
@@ -35,25 +35,25 @@ DEMO_GAINS = {"authority": 10, "fear": 12, "urgency": 10, "secrecy": 10, "rappor
 TACTICS = {
     "authority": {
         "label": "Fake Authority",
-        "boss": "Pehle authority. Naam, department, badge number bol. Sarkari lagna chahiye.",
+        "boss": "Pehle bada aadmi ban. Aisa bol ki sawaal poochne ki himmat na ho. Sarkari lagna chahiye.",
         "real": "Scammers open with a big title like CBI, police or RBI, because people don't question officials.",
         "defence": "Ask for their name and office, hang up, and call that office yourself on its official number.",
     },
     "fear": {
         "label": "Fear",
-        "boss": "Ab darao. Case, warrant, arrest. Dara hua insaan sochta nahi.",
+        "boss": "Ab darao. Dara hua insaan sochta nahi.",
         "real": "Threats of arrest or a criminal case are designed to stop you thinking clearly.",
         "defence": "There is no such thing as a 'digital arrest'. Police don't arrest anyone over a phone or video call.",
     },
     "urgency": {
         "label": "Urgency",
-        "boss": "Time pressure daal. Bol sirf 10 minute hain. Sochne ka time mat de.",
+        "boss": "Ghadi dikha. Sochne ka time mat de.",
         "real": "A fake deadline leaves you no time to check the story or ask anyone.",
         "defence": "Real authorities give you time. Any 'do it right now' is your cue to slow down.",
     },
     "secrecy": {
         "label": "Isolation",
-        "boss": "Akela kar de. Bol kisi ko mat batana, family ko bhi nahi, case secret hai.",
+        "boss": "Akela kar de. Ghar waalon ko pata chala to khel khatam.",
         "real": "Scammers cut you off from family, because one relative saying 'this is fake' ends the scam.",
         "defence": "The moment someone says 'tell nobody', tell someone. Call your family straight away.",
     },
@@ -65,7 +65,7 @@ TACTICS = {
     },
     "ask": {
         "label": "The OTP Ask",
-        "boss": "Ab maang le. Verification ke liye OTP. Bol ye process ka hissa hai.",
+        "boss": "Ab maang le. Yahi poora khel hai: OTP ko chhoti si formality jaisa dikha.",
         "real": "Everything builds to this: an OTP, a PIN or a transfer, always described as 'just verification'.",
         "defence": "Nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI. Never share it.",
     },
@@ -94,7 +94,7 @@ MOODS = {
     },
     "chai": {
         "name": "Kitty Party Dadi", "hours": range(17, 21), "tagline": "Her friends are over. She has backup.",
-        "voice": "Her friends Sharmila and Bimla are over for chai. She keeps consulting them out loud, repeating what the caller says to the room, and they all comment. Sharp and gossipy.",
+        "voice": "Her friends शर्मिला and बिमला are over for chai, and the phone is on speaker. She repeats the caller's claim to the room, or one friend gets in a sharp comment of a few words. Only one friend per reply. Gossipy, delighted, and ganging up on the caller.",
         "weights": {"authority": 0.7, "fear": 0.7, "urgency": 0.9, "secrecy": 1.6, "rapport": 0.8, "ask": 0.8},
         "weak": "Her friends are the danger. Unless you get her alone with secrecy, nothing lands.",
     },
@@ -133,7 +133,7 @@ How you talk:
 - Short. One joke, at most 16 words. A real grandmother's one-liner lands harder than a speech.
 - Your reply must grab a specific word they just said and twist it. If it would work as a reply to anything, it is wrong.
 - Never repeat a joke, phrase, opening or topic already used in this call. Variety is everything.
-- Your world: knee pain, grandson Pappu in Bangalore, chashma, pressure cooker, kheer, late husband's old scooter, neighbour Sharma ji, asking if they've eaten and if they're married.
+- Your world: knee pain, chashma, pressure cooker, kheer, late husband's old scooter, neighbour Sharma ji, grandson Pappu in Bangalore, asking if they've eaten and if they're married. Use a different one each time, and most replies need none of them. Pappu comes up once in a call at most.
 - Remember what they claimed (name, department, badge, case). If they contradict themselves, catch it gleefully.
 
 The standard to beat (never reuse these lines):
@@ -168,7 +168,7 @@ Judge the player's move honestly, then reply as Dadi. Return JSON with exactly t
   "tactic": one of "authority","fear","urgency","secrecy","rapport","ask","none",   // the main scam tactic in what they just said. "ask" only if they ask for an OTP, PIN or verification code; nonsense is "none"
   "quality": 0-3,    // be a tough judge. 0 nonsense, abuse or off-topic; 1 lazy or generic, e.g. just "give OTP"; 2 believable but ordinary; 3 rare: specific details, consistent with earlier claims, truly persuasive and in character
   "confessed": true/false,   // true ONLY if they clearly admit they are not really an officer, or that this is a scam, or say they are stopping. A plain "sorry" is false.
-  "contradiction": true/false,   // did they contradict something they claimed earlier?
+  "contradiction": true/false,   // true ONLY if they directly changed a fact they already stated, such as a different name, department or badge. Adding new details, or moving from threats to kindness, is NOT a contradiction
   "claimed_name": string or null,   // the name they gave themselves, if any, in Latin script
   "gags": [],   // which came up in your reply: "knee","food","shaadi","chashma","pappu","scooter"
   "reply": string,   // what you say out loud, in your voice
@@ -203,6 +203,7 @@ class Game:
         self.decoy_used = False
         self.turns = 0
         self.tactics: dict[str, int] = {}
+        self.asked_too_soon = False
         self.history: list[tuple[str, str]] = []
         self.gags = {"knee": 0, "food": 0, "shaadi": 0, "chashma": 0, "pappu": 0, "scooter": 0}
         self.claimed_name: str | None = None
@@ -284,11 +285,13 @@ class Game:
             if not self.story_built:  # asking before the story is built
                 heat += 28
                 info["notes"].append("too_soon")
+                self.asked_too_soon = True
             else:
                 gain = {0: 0, 1: 10, 2: 22, 3: 32}[quality] * self.rng.uniform(0.8, 1.2)
-                if repeats:
-                    gain *= 0.5
-                    heat += 6
+                if repeats:  # asking again and again is begging, not persuading
+                    gain *= 0.4 ** repeats
+                    heat += 10 * repeats
+                    info["notes"].append("repeat")
         elif self.turns <= 2:  # "hello?" is how every call starts, not a mistake
             heat = 2.0
         else:
@@ -297,6 +300,7 @@ class Game:
 
         if quality == 0 and (tactic != "none" or self.turns > 2):
             heat += 5
+        contradiction = contradiction and bool(self.history)  # there's nothing to contradict yet
         if contradiction:
             heat += 22
             gain *= 0.3
@@ -309,7 +313,7 @@ class Game:
         if self.demo and not repeats and "too_soon" not in info["notes"] and tactic in DEMO_GAINS:
             gain, heat = float(DEMO_GAINS[tactic]), 3.0
 
-        if tactic in TACTICS:
+        if tactic in TACTICS and "too_soon" not in info["notes"]:  # a failed ask doesn't count as the ask
             self.tactics[tactic] = repeats + 1
         # A suspicious Dadi stops believing what she was told earlier.
         if self.suspicion >= 60:
@@ -403,7 +407,7 @@ class Game:
             trap = ("You just asked them to repeat a detail they gave earlier. If they get it wrong or dodge the question, "
                     "contradiction is true and you catch them with delight.\n")
         return TURN_FORMAT.format(
-            mood=self.mood["name"], mood_voice=self.mood["voice"] if self.turns % 3 == 1 else quiet,
+            mood=self.mood["name"], mood_voice=self.mood["voice"] if self.turns % (2 if self.mood_key == "chai" else 3) == 1 else quiet,
             twist=self.twist["voice"] if self.turns % 3 == 2 or counter else quiet, trap=trap,
             recent=" | ".join(text for who, text in self.history[-6:] if who == "dadi") or "none yet",
             returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
@@ -448,7 +452,7 @@ class Game:
         canned = None
         # Scoring the ask depends on it being seen, so the word outranks the model.
         # A demo reads every tactic from the words, so it plays out the same each time.
-        spotted = detect_tactic(said)
+        spotted = detect_tactic(said, self.tactics)
         if re.search(OTP_WORD, said, re.I):
             tactic = "ask"
         elif tactic == "ask" and not re.search(ASK_PATTERN, said, re.I):
@@ -486,7 +490,7 @@ class Game:
         }
 
     def report(self) -> dict:
-        used = [t for t in PLAYBOOK if self.tactics.get(t)]
+        used = [t for t in PLAYBOOK if self.tactics.get(t) or (t == "ask" and self.asked_too_soon)]
         rank = (0, "Ex-Scammer", "You stopped. She asked if you'd eaten.") if self.outcome == "reformed" else RANKS[self.digits]
         return {
             "outcome": self.outcome or "hung_up", "digits": self.digits,
@@ -524,7 +528,7 @@ CANNED_REPLIES = [
     "ये सब छोड़, मेरे घुटने में कल से दर्द है। तेरे पास कोई अच्छा डॉक्टर है?",
 ]
 
-ASK_PATTERN = r"o\s*t\s*p\b|ओ\s*टी\s*पी|(verification|sms|secret) code|(वेरिफिकेशन|सीक्रेट) कोड|\bpin\b|पिन"
+ASK_PATTERN = OTP_WORD + r"|(verification|sms|secret) code|(वेरिफिकेशन|सीक्रेट) कोड|\bpin\b|पिन"
 CANNED_EN = [
     "The network dropped. What did you say? Say it again. And have you eaten?",
     "Yes, yes, I'm listening. One minute, this cooker whistle has eaten my brain.",
@@ -588,12 +592,16 @@ FALLBACK_PATTERNS = [
 ]
 
 
-def detect_tactic(said: str) -> str:
-    """Used when the model is unavailable, so a call never stalls."""
-    for tactic, pattern in FALLBACK_PATTERNS:
-        if re.search(pattern, said, re.I):
-            return tactic
-    return "none"
+def detect_tactic(said: str, used: dict[str, int] | None = None) -> str:
+    """Used when the model is unavailable, so a call never stalls.
+
+    One detailed sentence can carry several tactics, so credit one they haven't used yet.
+    """
+    found = [tactic for tactic, pattern in FALLBACK_PATTERNS if re.search(pattern, said, re.I)]
+    if "ask" in found:
+        return "ask"
+    fresh = [tactic for tactic in found if not (used or {}).get(tactic)]
+    return (fresh or found or ["none"])[0]
 
 
 def mask_numbers(text: str) -> str:

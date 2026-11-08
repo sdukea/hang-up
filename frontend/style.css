@@ -227,6 +227,7 @@ body {
 .flip-card h2 { margin: 0 0 18px; font: 400 clamp(28px, 8vw, 38px)/1.1 var(--display); }
 .flip-kicker { margin: 0 0 6px; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
 .flip-line { min-height: 3.6em; margin: 0 0 6px; font-size: 21px; font-weight: 700; line-height: 1.3; }
+.flip-line:empty { display: none; }
 .flip-note { min-height: 2.8em; margin: 0 0 20px; font-size: 15px; line-height: 1.35; opacity: .85; }
 .flip-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
 .flip-choices .chunky { font-size: 18px; }
@@ -240,6 +241,8 @@ body {
 .r-mood { margin: 0; font-weight: 700; color: var(--gold); }
 .rank { display: inline-block; margin: 6px 0; padding: 7px 16px; font: 400 clamp(25px, 8vw, 34px)/1.05 var(--display); color: var(--ink); background: var(--gold); border: var(--edge); border-radius: 12px; box-shadow: var(--pop); transform: rotate(-2deg); animation: stampin .45s cubic-bezier(.2,1.6,.4,1); }
 .r-rankline { margin: 10px 0 0; font-size: 18px; line-height: 1.2; }
+.r-flip { margin: 8px 0 0; font-size: 17px; font-weight: 800; color: var(--gold); line-height: 1.2; }
+.r-flip:empty { display: none; }
 .r-crack { margin: 0; font-size: 14.5px; color: #d8c8f0; }
 .gags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .gag-chip { padding: 5px 11px; font-weight: 700; font-size: 15px; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 999px; }
@@ -252,15 +255,17 @@ body {
 .lp-top small { font: 400 13px var(--display); color: var(--pink-d); }
 .lp-top p { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
 .lessons { display: grid; gap: 10px; margin-bottom: 12px; }
-.lesson-more { margin: -4px auto 10px; }
 .lesson { padding: 10px 12px; background: #fff; border: 3px solid var(--ink); border-radius: 12px; line-height: 1.25; }
 .lesson b { font: 400 16px var(--display); color: var(--pink-d); }
 .lesson p { margin: 2px 0 5px; font-size: 16px; }
-.lesson .defence { margin: 0; padding-top: 5px; border-top: 2px dashed #bbb; font-weight: 700; color: #066; }
+.lesson small { float: right; margin-top: 3px; font: 400 10.5px var(--display); color: #066; }
+.lesson.used { background: #fff3d6; }
+.lesson p:last-child { margin-bottom: 0; }
 .rules { padding: 12px; color: var(--cream); background: var(--ink); border-radius: 12px; }
 .rules ol { margin: 6px 0 0; padding-left: 20px; }
 .rules li { margin-bottom: 3px; line-height: 1.25; }
 .rules a { color: var(--gold); font-weight: 800; }
+.rules-help { margin: 8px 0 0; padding-top: 8px; border-top: 2px dashed #ffffff44; line-height: 1.25; }
 .check-answer { margin: 12px 0 0 !important; font-weight: 700; line-height: 1.25; }
 .parents { background: #d4f7dd; }
 .parents p { line-height: 1.25; }

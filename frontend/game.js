@@ -17,7 +17,7 @@ const post = (url, body, ms = 12000) => {
 };
 
 const SHOUT_LEVEL = 0.32;      // how loud "louder!" means, on the 0-1 meter
-const OTP_WORD = /o\s*t\s*p\b|ओ\s*टी\s*पी/i;
+const OTP_WORD = /\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]/i;
 // Safari replays media requests and needs byte ranges, so it waits for the whole reply.
 const STREAMS_AUDIO = !/iP(hone|ad|od)|^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const CLIP_STALL_MS = 10000;   // a clip that makes no progress for this long has failed
@@ -25,7 +25,7 @@ const COUNTER_NOTES = {
   hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta."],
   shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
   callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!"],
-  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call ends most scams.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'."],
+  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call can end a scam.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'."],
   trap: ["SHE'S TESTING YOUR STORY", "Real defence: make them repeat details. Liars slip.", "Yaad hai kya bola tha? Bilkul wahi bol, warna pakda jayega."],
 };
 const GAG_LABELS = {
@@ -34,10 +34,22 @@ const GAG_LABELS = {
 };
 const OUTCOME_STAMP = { busted: "BUSTED", timeout: "TIME UP", hung_up: "YOU FLED", cracked: "CRACKED", reformed: "YOU STOPPED" };
 const NOT_ANSWERING = "Dadi isn't answering. Try again in a minute.";
+const CUTOFF_HI = [
+  "अरे अरे अरे, रुक! अभी नाम भी ढंग से नहीं बताया, और सीधे OTP? तू कैसा अफ़सर है रे?",
+  "OTP? OTP? बेटा, पहली मुलाक़ात में कोई OTP माँगता है क्या? पहले बता, तू है कौन?",
+  "चुप! बीच में मत बोल। यही OTP वाली बात शर्मा जी को भी किसी ने बोली थी।",
+];
 const CUTOFF_EN = [
   "Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?",
   "OTP? OTP? Who asks for an OTP on the first meeting, beta? First tell me who you are.",
   "Quiet! Don't interrupt me. Someone said this same OTP thing to Sharma ji too.",
+];
+// The tactics, boiled down to what a player should remember.
+const SCRIPT_PARTS = [
+  { label: "Authority", tactics: ["authority"], line: "A big title, so you don't ask questions." },
+  { label: "Pressure", tactics: ["fear", "urgency", "rapport"], line: "Fear, a deadline, then fake kindness, so you can't think." },
+  { label: "Isolation", tactics: ["secrecy"], line: "\"Tell nobody\", because one relative can end the scam." },
+  { label: "The OTP", tactics: ["ask"], line: "It all builds to this. Nobody genuine ever asks for it." },
 ];
 const NEXT_DADI = [
   "Morning: Puja Dadi", "Late morning: Serial Dadi", "Afternoon: Sleepy Dadi",
@@ -230,7 +242,20 @@ function hush() {
   if (audio.stop) audio.stop();
 }
 
-const clip = (name) => `/audio/${name}.mp3`;
+const localClips = {};
+const clip = (name) => localClips[name] || `/audio/${name}.mp3`;
+
+// Her instant reactions have to be instant, so they're on the phone before she needs them.
+function preloadClips() {
+  const names = ["nothing_heard", ...[0, 1, 2].map((n) => `cutoff_${n}`), ...[...Array(10).keys()].map((n) => `filler_${n}`)];
+  for (const name of names) {
+    if (localClips[name]) continue;
+    fetch(`/audio/${name}.mp3`)
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((blob) => { if (blob) localClips[name] = URL.createObjectURL(blob); })
+      .catch(() => {});
+  }
+}
 
 // ---------- Screens ----------
 
@@ -522,7 +547,7 @@ async function runCall() {
   let data;
   try {
     const resp = await post("/api/game/start", {
-      hour: forcedHour() ?? (demoMode() ? 11 : new Date().getHours()),
+      hour: forcedHour() ?? (demoMode() ? 18 : new Date().getHours()),
       demo: demoMode(),
       returning_name: returning,
       quiz: state.quizBefore,
@@ -541,9 +566,10 @@ async function runCall() {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
-    voiceWarned: false, listenFails: 0, deadMicHolds: 0,
+    voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null,
   });
   buildCallScreen(data, hasMic);
+  preloadClips();
 
   $("ring-mood").textContent = data.mood_name;
   $("ring-tag").textContent = data.tagline;
@@ -714,7 +740,7 @@ async function cutOff(said) {
   sfx.bad();
   jolt();
   const which = state.cutoffs++ % 3;
-  bubble(" ", CUTOFF_EN[which]);
+  bubble(CUTOFF_HI[which], CUTOFF_EN[which]);
   const line = say(clip(`cutoff_${which}`));
   const result = await judged;
   if (result) {
@@ -1104,28 +1130,31 @@ async function crackedEnding() {
   $("crack-name").textContent = "";
   $("crack-text").textContent = "";
   sfx.good();
-  await sleep(1100);
-  await say(clip("reveal_setup"));
-  await sleep(400);
+  await sleep(1000);
+  await say(clip(state.game.mood === "chai" ? "reveal_setup_chai" : "reveal_setup"));
+  await sleep(500);
+  // No siren here. The quiet is what lands.
   $("crack-kicker").textContent = "That was never an OTP.";
   $("crack-number").classList.add("merged");
   $("crack-name").textContent = "India's cyber-fraud helpline";
-  $("end-flash").classList.add("siren");
-  sfx.siren();
   jolt();
   const again = safeGet("dadi_seen_1930");
   await say(clip(again ? "reveal_again" : "reveal_1930"));
   safeSet("dadi_seen_1930", "1");
-  await sleep(700);
   if (again) {
+    await sleep(500);
     $("crack-text").textContent = "You already knew this number. That was the point.";
-    await sleep(2800);
+    await sleep(2600);
     return;
   }
+  await sleep(1000);
+  $("crack-text").textContent = "Ab samjhe? Now do you get it?";
+  await say(clip("reveal_samjhe"));
+  await sleep(1400);
   $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
-  await sleep(2800);
+  await sleep(2600);
   $("crack-text").textContent = "So make sure yours know the number.";
-  await sleep(2400);
+  await sleep(2200);
 }
 
 // ---------- The last round: now it's your phone ----------
@@ -1139,7 +1168,7 @@ async function flipRound() {
   $("flip-title").textContent = "Unknown number";
   $("flip-line").textContent = "";
   $("flip-note").textContent = "";
-  $("flip-choices").hidden = false;
+  $("flip-choices").hidden = true;
   $("b-flip-next").hidden = true;
   sfx.ring();
 
@@ -1149,11 +1178,13 @@ async function flipRound() {
   $("b-flip-otp").onclick = () => answer("otp");
 
   const run = ++state.speechRun;
+  let ownWords = false;
   (async () => {
     await sleep(1200);
     const call = await post(`/api/game/${state.game.id}/flip`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     if (run !== state.speechRun) return;
     if (call && call.own_line) {
+      ownWords = true;
       $("flip-line").textContent = `"${call.own_line}"`;
       $("flip-note").textContent = "Those are your words. It's someone else's voice.";
     } else {
@@ -1161,6 +1192,7 @@ async function flipRound() {
     }
     await playSpeech(call ? call.speech : clip("flip_open"), () => run !== state.speechRun);
     if (run !== state.speechRun) return;
+    $("flip-choices").hidden = false;  // they hear the script out, as a real target would
     await say(clip("flip_ask"));
     if (run !== state.speechRun) return;
     await sleep(6000);  // no answer is an answer too
@@ -1172,12 +1204,15 @@ async function flipRound() {
   $("flip-choices").hidden = true;
   const hungUp = picked === "hang";
   post(`/api/game/${state.game.id}/flip/result`, { hung_up: hungUp });
-  $("flip-kicker").textContent = hungUp ? "Call ended" : "That's how it happens";
-  $("flip-title").textContent = hungUp ? "That's the whole defence." : picked === "froze" ? "You froze." : "You gave it away.";
+  state.flipPicked = picked;
+  const script = ownWords ? "your own script" : "the same script you just ran";
+  const Script = ownWords ? "Your own script" : "The same script";
+  $("flip-kicker").textContent = hungUp ? "You hung up" : picked === "froze" ? "You froze" : "You gave the OTP";
+  $("flip-title").textContent = hungUp ? `That was ${script}. And you hung up.` : `${Script} just worked on you.`;
   $("flip-line").textContent = "";
   $("flip-note").textContent = hungUp
-    ? "Hang up, tell someone you trust, and call 1930 if money has gone."
-    : "You ran this exact script a minute ago, and it still got you. In a real call, just hang up.";
+    ? "That's the feeling you need to recognise. Hang up, then tell someone you trust."
+    : "That's the feeling you need to recognise. In a real call, just hang up.";
   if (hungUp) sfx.good(); else { sfx.bad(); jolt(); }
   $("b-flip-next").hidden = false;
   const heard = say(clip(hungUp ? "flip_pass" : "flip_fail"));
@@ -1217,32 +1252,25 @@ function showReport() {
     return chip;
   }));
 
+  // What they actually did in the last round. It's the one choice we really saw.
+  $("r-flip").textContent = { hang: "Then your phone rang, and you hung up.", otp: "Then your phone rang, and you gave the OTP.", froze: "Then your phone rang, and you froze." }[state.flipPicked] || "";
+
   const lessons = r.lessons || [];
-  $("r-lesson-title").textContent = lessons.length
-    ? "You just used the tricks real scammers use. Here's how to see through each one."
-    : "You didn't use one real scam trick. Here's the one that matters most.";
-  const shown = lessons.length ? lessons : [{ label: "Fear", real: "Threats of arrest are designed to stop you thinking.", defence: "There is no such thing as a 'digital arrest'. Police don't arrest anyone over a phone or video call." }];
-  // The newest trick first. Keep it short, and let the curious open the rest.
-  const ordered = [...shown].reverse();
-  $("r-lessons").replaceChildren(...ordered.slice(0, 2).map(lessonCard));
-  $("r-more").hidden = ordered.length <= 2;
-  $("r-more").onclick = () => {
-    $("r-lessons").append(...ordered.slice(2).map(lessonCard));
-    $("r-more").hidden = true;
-  };
-  function lessonCard(l) {
+  const used = new Set(lessons.map((l) => l.tactic));
+  $("r-lesson-title").textContent = lessons.length ? "The script you just ran. Calls like this are built on these four parts." : "Scam calls like this are built on these four parts.";
+  $("r-lessons").replaceChildren(...SCRIPT_PARTS.map((part) => {
     const card = document.createElement("div");
-    card.className = "lesson";
+    const wasUsed = part.tactics.some((t) => used.has(t));
+    card.className = `lesson${wasUsed ? " used" : ""}`;
     const b = document.createElement("b");
-    b.textContent = l.label;
-    const real = document.createElement("p");
-    real.textContent = l.real;
-    const def = document.createElement("p");
-    def.className = "defence";
-    def.textContent = `If it's you: ${l.defence}`;
-    card.append(b, real, def);
+    b.textContent = part.label;
+    const mark = document.createElement("small");
+    mark.textContent = wasUsed ? "YOU USED THIS" : "";
+    const line = document.createElement("p");
+    line.textContent = part.line;
+    card.append(b, mark, line);
     return card;
-  }
+  }));
 
   const missed = r.missed || [];
   const tip = [r.weak && `Today's Dadi: ${r.weak}`, missed.length ? `You never tried: ${missed.join(", ")}.` : ""].filter(Boolean).join(" ");

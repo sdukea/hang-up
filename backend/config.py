@@ -24,7 +24,7 @@ STT_PARTIALS = True
 STT_KEYTERMS = [
     "CBI", "police", "digital arrest", "arrest warrant", "OTP", "KYC", "customs", "parcel",
     "courier", "Aadhaar", "PAN", "UPI", "RBI", "safe account", "money laundering", "Dadi",
-    "madam", "inspector", "officer", "account", "badge", "bank", "दादी", "Dadi ji",
+    "madam", "inspector", "officer", "account", "badge", "bank", "दादी", "Dadi ji", "ओटीपी",
 ]
 
 TTS_URL = "https://api.vachana.ai/api/v1/tts/inference"

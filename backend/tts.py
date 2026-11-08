@@ -73,14 +73,19 @@ async def stream(
     headers = {"X-API-Key-ID": config.require_key(), "Content-Type": "application/json"}
     try:
         async with _one_at_a_time, httpx.AsyncClient(timeout=30) as client:
-            async with client.stream("POST", config.TTS_SSE_URL, json=payload, headers=headers) as resp:
-                if resp.status_code != 200:
-                    raise TTSError(f"TTS failed ({resp.status_code})")
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
+            for attempt in range(2):
+                async with client.stream("POST", config.TTS_SSE_URL, json=payload, headers=headers) as resp:
+                    if resp.status_code == 429 and attempt == 0:
+                        await asyncio.sleep(0.8)  # another process still holds the slot
                         continue
-                    chunk = json.loads(line[5:]).get("audio")
-                    if chunk:
-                        yield base64.b64decode(chunk)
+                    if resp.status_code != 200:
+                        raise TTSError(f"TTS failed ({resp.status_code})")
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        chunk = json.loads(line[5:]).get("audio")
+                        if chunk:
+                            yield base64.b64decode(chunk)
+                    return
     except (httpx.HTTPError, ValueError) as e:
         raise TTSError(f"Could not stream Timbre: {e.__class__.__name__}") from e
