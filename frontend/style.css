@@ -73,6 +73,13 @@ body {
 .scoreboard .hot b { color: var(--pink); }
 #b-start { width: 100%; font-size: 26px; animation: nudge 1.6s ease-in-out infinite; }
 @keyframes nudge { 50% { transform: translateY(-3px) rotate(-.6deg); } }
+.lang-pick { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 14px; font-weight: 700; font-size: 15px; }
+.lang-pick span { margin-right: 4px; color: #e5d8fb; }
+.lang-pick button {
+  min-width: 92px; min-height: 40px; padding: 4px 14px; border: 3px solid var(--ink); border-radius: 999px;
+  background: #3a0f7a; color: var(--cream); font: 700 16px var(--body); cursor: pointer;
+}
+.lang-pick button[aria-pressed="true"] { background: var(--gold); color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
 .fine { margin: 16px 4px 0; text-align: center; font-size: 13.5px; line-height: 1.25; color: #e5d8fb; }
 .fine b { color: #fff; }
 

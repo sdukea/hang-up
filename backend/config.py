@@ -16,6 +16,8 @@ GNANI_API_KEY = _env("GNANI_API_KEY")
 STT_URL = "wss://api.vachana.ai/stt/v3/stream"
 STT_MODEL = "prisma-v3.0"
 STT_LANG = _env("STT_LANG", "hi-IN")
+# English mode needs its own model: indic-auto writes English speech out in Devanagari.
+STT_LANG_EN = _env("STT_LANG_EN", "en-IN")
 STT_SAMPLE_RATE = 16000
 STT_MIN_SILENCE_MS = "500"
 STT_MAX_SPEECH_S = "12.0"
@@ -34,6 +36,8 @@ TTS_VOICE = "Chitra"
 DADI_VOICE = _env("DADI_VOICE", "Chitra")
 DADI_SPEED = float(_env("DADI_SPEED", "1.0"))
 PAPPU_VOICE = _env("PAPPU_VOICE", "Vikrant")
+# Game language -> Timbre language. Hindi is the default everywhere.
+TTS_LANGS = {"hi": "hi-IN", "en": "en-IN"}
 
 # Any OpenAI-compatible chat completions API.
 LLM_BASE_URL = _env("LLM_BASE_URL")

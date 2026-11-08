@@ -21,12 +21,13 @@ const OTP_WORD = /\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]
 // Safari replays media requests and needs byte ranges, so it waits for the whole reply.
 const STREAMS_AUDIO = !/iP(hone|ad|od)|^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const CLIP_STALL_MS = 10000;   // a clip that makes no progress for this long has failed
+// [pop title, pop note, Boss in Hinglish, Boss in English]
 const COUNTER_NOTES = {
-  hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta."],
-  shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega."],
-  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!"],
-  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call can end a scam.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'."],
-  trap: ["SHE'S TESTING YOUR STORY", "Real defence: make them repeat details. Liars slip.", "Yaad hai kya bola tha? Bilkul wahi bol, warna pakda jayega."],
+  hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta.", "She put you on hold! Don't hang up. Real scammers keep people on the line for hours, so the family never finds out."],
+  shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega.", "Louder! Hold the button and shout, or she gets suspicious."],
+  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!", "Stop her! If the police station tells her the truth, it's over. That's why scammers never let you call back. Quick!"],
+  pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call can end a scam.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'.", "Danger! Family's here. That's why scammers say 'tell nobody'."],
+  trap: ["SHE'S TESTING YOUR STORY", "Real defence: make them repeat details. Liars slip.", "Yaad hai kya bola tha? Bilkul wahi bol, warna pakda jayega.", "Remember what you said? Say exactly that, or you're caught."],
 };
 const GAG_LABELS = {
   knee: "🦵 Ghutna", food: "🍛 Khana khaya?", shaadi: "💍 Shaadi kab?",
@@ -57,6 +58,7 @@ const NEXT_DADI = [
 ];
 
 const state = {
+  lang: chosenLang(),   // "hi" or "en": what Dadi speaks and what Prisma listens for
   game: null,
   quizBefore: null,
   secondsLeft: 0,
@@ -243,16 +245,17 @@ function hush() {
 }
 
 const localClips = {};
-const clip = (name) => localClips[name] || `/audio/${name}.mp3`;
+const clipPath = (name) => `/audio/${state.lang === "en" ? "en/" : ""}${name}.mp3`;
+const clip = (name) => localClips[clipPath(name)] || clipPath(name);
 
 // Her instant reactions have to be instant, so they're on the phone before she needs them.
 function preloadClips() {
   const names = ["nothing_heard", ...[0, 1, 2].map((n) => `cutoff_${n}`), ...[...Array(10).keys()].map((n) => `filler_${n}`)];
-  for (const name of names) {
-    if (localClips[name]) continue;
-    fetch(`/audio/${name}.mp3`)
+  for (const path of names.map(clipPath)) {
+    if (localClips[path]) continue;
+    fetch(path)
       .then((r) => (r.ok ? r.blob() : null))
-      .then((blob) => { if (blob) localClips[name] = URL.createObjectURL(blob); })
+      .then((blob) => { if (blob) localClips[path] = URL.createObjectURL(blob); })
       .catch(() => {});
   }
 }
@@ -361,6 +364,29 @@ async function loadStats() {
   }
 }
 
+// Hindi is the default. ?lang=en picks English, and a player's choice is remembered.
+function chosenLang() {
+  const asked = new URLSearchParams(location.search).get("lang");
+  if (asked === "en" || asked === "hi") return asked;
+  return safeGet("dadi_lang") === "en" ? "en" : "hi";
+}
+
+function setLang(lang) {
+  state.lang = lang;
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  $("speak-in").textContent = lang === "en" ? "English, or Hinglish." : "Hindi or Hinglish.";
+}
+
+for (const btn of document.querySelectorAll("[data-lang]")) {
+  btn.addEventListener("click", () => {
+    sfx.tap();
+    setLang(btn.dataset.lang);
+    safeSet("dadi_lang", btn.dataset.lang);
+  });
+}
+setLang(state.lang);
+
 $("b-start").addEventListener("click", () => {
   unlockAudio();
   sfx.tap();
@@ -454,7 +480,7 @@ function onMicFrame(buffer) {
 
 function openListener() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${proto}://${location.host}/ws/listen`);
+  const ws = new WebSocket(`${proto}://${location.host}/ws/listen?lang=${state.lang}`);
   ws.binaryType = "arraybuffer";
   ws.onclose = () => {
     if (state.ws !== ws || state.over || state.voiceDown) return;
@@ -549,6 +575,7 @@ async function runCall() {
     const resp = await post("/api/game/start", {
       hour: forcedHour() ?? (demoMode() ? 18 : new Date().getHours()),
       demo: demoMode(),
+      lang: state.lang,
       returning_name: returning,
       quiz: state.quizBefore,
     }, 30000);
@@ -740,7 +767,8 @@ async function cutOff(said) {
   sfx.bad();
   jolt();
   const which = state.cutoffs++ % 3;
-  bubble(CUTOFF_HI[which], CUTOFF_EN[which]);
+  if (state.lang === "en") bubble(CUTOFF_EN[which]);
+  else bubble(CUTOFF_HI[which], CUTOFF_EN[which]);
   const line = say(clip(`cutoff_${which}`));
   const result = await judged;
   if (result) {
@@ -958,7 +986,7 @@ async function runCounter(effect) {
   const note = COUNTER_NOTES[effect];
   if (note) {
     pop(note[0], note[1], "move");
-    setBossText(note[2], "· She's fighting back");
+    setBossText(note[state.lang === "en" ? 3 : 2], "· She's fighting back");
   }
   if (effect === "hold") {
     await say(clip("hold"));
@@ -1148,7 +1176,7 @@ async function crackedEnding() {
     return;
   }
   await sleep(1000);
-  $("crack-text").textContent = "Ab samjhe? Now do you get it?";
+  $("crack-text").textContent = state.lang === "en" ? "Now do you get it?" : "Ab samjhe? Now do you get it?";
   await say(clip("reveal_samjhe"));
   await sleep(1400);
   $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
@@ -1443,7 +1471,9 @@ $("b-share").addEventListener("click", async () => {
 
 $("b-parents").addEventListener("click", async () => {
   sfx.tap();
-  const message = "कृपया ये दादी का छोटा सा मैसेज सुनिए। फ़ोन पर पुलिस या CBI बनकर ठगने वालों से बचने के लिए ज़रूरी है। कोई OTP या पैसे माँगे तो फ़ोन काटिए और 1930 पर कॉल कीजिए।";
+  const message = state.lang === "en"
+    ? "Please listen to this short message from Dadi. It's about people who call pretending to be police or CBI. If anyone asks for an OTP or money, cut the phone and call 1930."
+    : "कृपया ये दादी का छोटा सा मैसेज सुनिए। फ़ोन पर पुलिस या CBI बनकर ठगने वालों से बचने के लिए ज़रूरी है। कोई OTP या पैसे माँगे तो फ़ोन काटिए और 1930 पर कॉल कीजिए।";
   try {
     const blob = await (await fetch(clip("parents"))).blob();
     const file = new File([blob], "Dadi-ka-message.mp3", { type: "audio/mpeg" });
@@ -1456,7 +1486,7 @@ $("b-parents").addEventListener("click", async () => {
     if (err.name === "AbortError") return;
     console.warn(err);
   }
-  window.open(`https://wa.me/?text=${encodeURIComponent(`${message} ${SITE}/audio/parents.mp3`)}`, "_blank", "noopener");
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${message} ${SITE}${clipPath("parents")}`)}`, "_blank", "noopener");
 });
 
 $("b-parents-play").addEventListener("click", () => {

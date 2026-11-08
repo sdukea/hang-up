@@ -10,6 +10,7 @@ import logging
 import random
 import time
 from collections import defaultdict, deque
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -28,7 +29,7 @@ FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 
 games: dict[str, game.Game] = {}
-speech: dict[str, tuple[str, float, str]] = {}
+speech: dict[str, tuple[str, float, str, str]] = {}  # token -> text, made at, voice, language
 _starts: dict[str, deque] = defaultdict(deque)
 _listen_sessions = 0
 stats = {
@@ -78,7 +79,7 @@ def _purge():
     cutoff = time.time() - 900
     for key in [k for k, g in games.items() if g.started < cutoff]:
         del games[key]
-    for key in [k for k, (_, at, _v) in speech.items() if at < cutoff]:
+    for key in [k for k, (_, at, *_rest) in speech.items() if at < cutoff]:
         del speech[key]
 
 
@@ -111,6 +112,11 @@ class Start(BaseModel):
     returning_name: str | None = Field(default=None, max_length=40)
     quiz: bool | None = None
     demo: bool = False
+    lang: Literal["hi", "en"] = "hi"
+
+
+def _audio(g: game.Game, clip: str) -> str:
+    return f"/audio/{'en/' if g.lang == 'en' else ''}{clip}.mp3"
 
 
 @app.post("/api/game/start")
@@ -125,7 +131,7 @@ async def start_game(body: Start, request: Request):
         raise HTTPException(status_code=429, detail="Dadi has gone for her nap. Try again in a while.")
     hits.append(now)
 
-    g = game.Game(body.hour, None if body.demo else body.returning_name, demo=body.demo)
+    g = game.Game(body.hour, None if body.demo else body.returning_name, demo=body.demo, lang=body.lang)
     games[g.id] = g
     if body.quiz is not None and not g.demo:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
@@ -137,7 +143,7 @@ async def start_game(body: Start, request: Request):
         "tagline": g.mood["tagline"], "twist": g.twist["label"], "greet": greet,
         "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
-        "story_built": g.story_built, "demo": g.demo,
+        "story_built": g.story_built, "demo": g.demo, "lang": g.lang,
     }
 
 
@@ -155,10 +161,10 @@ async def play_turn(game_id: str, body: Turn):
         result["speech"] = None
     elif result["canned"] is None:
         token = f"{g.id}-{g.turns}"
-        speech[token] = (result["reply"], time.time(), config.DADI_VOICE)
+        speech[token] = (result["reply"], time.time(), config.DADI_VOICE, g.lang)
         result["speech"] = f"/api/speech/{token}"
     else:
-        result["speech"] = f"/audio/{result['canned']}.mp3"
+        result["speech"] = _audio(g, result["canned"])
     return result
 
 
@@ -168,7 +174,7 @@ async def spoken_reply(token: str):
     item = speech.pop(token, None)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
-    audio = tts.stream(item[0], "hi-IN", voice=item[2], model=config.TTS_MODEL, speed=config.DADI_SPEED)
+    audio = tts.stream(item[0], config.TTS_LANGS[item[3]], voice=item[2], model=config.TTS_MODEL, speed=config.DADI_SPEED)
     try:
         first = await anext(audio)
     except (tts.TTSError, RuntimeError, StopAsyncIteration) as e:
@@ -191,9 +197,9 @@ async def flip_round(game_id: str):
     """The last round: a stranger's voice calls the player, using the player's own words."""
     g = _get_game(game_id)
     if not g.own_line:
-        return {"own_line": None, "speech": "/audio/flip_open.mp3"}
+        return {"own_line": None, "speech": _audio(g, "flip_open")}
     token = f"{g.id}-flip"
-    speech[token] = (g.own_line, time.time(), config.PAPPU_VOICE)
+    speech[token] = (g.own_line, time.time(), config.PAPPU_VOICE, g.lang)
     return {"own_line": g.own_line, "speech": f"/api/speech/{token}"}
 
 
@@ -281,7 +287,7 @@ async def listen(browser: WebSocket):
     """Browser sends PCM16 mono audio at 16 kHz; we send back Prisma events.
 
     The text frame "flush" sends trailing silence so Prisma finishes the last
-    words, then replies {"type": "flushed"}.
+    words, then replies {"type": "flushed"}. `?lang=en` listens for English.
     """
     global _listen_sessions
     await browser.accept()
@@ -290,7 +296,7 @@ async def listen(browser: WebSocket):
         await browser.close()
         return
     try:
-        prisma = PrismaStream()
+        prisma = PrismaStream(config.STT_LANG_EN if browser.query_params.get("lang") == "en" else config.STT_LANG)
         await prisma.connect()
     except Exception as e:
         log.warning("Prisma connect failed: %s", e)

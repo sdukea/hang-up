@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Voice game</b> &nbsp;·&nbsp; <b>Hindi + Hinglish</b> &nbsp;·&nbsp; <b>Built on Gnani AI</b>
+  <b>Voice game</b> &nbsp;·&nbsp; <b>Hindi + English</b> &nbsp;·&nbsp; <b>Built on Gnani AI</b>
 </p>
 
 <p align="center">
@@ -200,7 +200,7 @@ No. Everyone in the game is fictional. The people who get these calls are not.
 <details>
 <summary><b>Do I have to speak Hindi?</b></summary>
 
-Hindi or Hinglish plays best, because that's what the game is built around. Dadi understands English too, and her live replies come with English subtitles, but she'll answer you in Hinglish either way.
+No. Pick **English** on the start screen and Dadi speaks English, with a few Hindi words she refuses to give up. Hindi is the default, with English subtitles on her live replies. You can also open the game with `?lang=en`.
 
 </details>
 

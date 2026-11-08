@@ -26,7 +26,8 @@ OTP = "1930"
 DIGIT_THRESHOLDS = [12, 35, 58, 80]
 STORY_MOVES = 3  # different tactics she needs to hear before an OTP ask lands
 OTP_WORD = r"\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]"
-CONFESSION = r"scammer h(oo|u)n|स्कैमर हूँ|fake h(oo|u)n|officer nah[ie]+\s*h(oo|u)n|(ऑफिसर|अफ़सर|अफसर) नहीं हूँ"
+CONFESSION = (r"scammer h(oo|u)n|स्कैमर हूँ|fake h(oo|u)n|officer nah[ie]+\s*h(oo|u)n|(ऑफिसर|अफ़सर|अफसर) नहीं हूँ"
+              r"|\bi('?m| am) (a |the )?scammer|\bi('?m| am) not (an? |really )?(real )?officer")
 # Demo mode: the same call plays the same way every time, while Prisma, Timbre and
 # Dadi's replies stay live. Fear earns digit 1, secrecy 2, kindness 3, the ask 4.
 DEMO_GAINS = {"authority": 10, "fear": 12, "urgency": 10, "secrecy": 10, "rapport": 20, "ask": 25}
@@ -36,36 +37,42 @@ TACTICS = {
     "authority": {
         "label": "Fake Authority",
         "boss": "Pehle bada aadmi ban. Aisa bol ki sawaal poochne ki himmat na ho. Sarkari lagna chahiye.",
+        "boss_en": "Be someone big first. Sound so official she won't dare ask questions.",
         "real": "Scammers open with a big title like CBI, police or RBI, because people don't question officials.",
         "defence": "Ask for their name and office, hang up, and call that office yourself on its official number.",
     },
     "fear": {
         "label": "Fear",
         "boss": "Ab darao. Dara hua insaan sochta nahi.",
+        "boss_en": "Now scare her. Scared people don't think.",
         "real": "Threats of arrest or a criminal case are designed to stop you thinking clearly.",
         "defence": "There is no such thing as a 'digital arrest'. Police don't arrest anyone over a phone or video call.",
     },
     "urgency": {
         "label": "Urgency",
         "boss": "Ghadi dikha. Sochne ka time mat de.",
+        "boss_en": "Show her the clock. Don't give her time to think.",
         "real": "A fake deadline leaves you no time to check the story or ask anyone.",
         "defence": "Real authorities give you time. Any 'do it right now' is your cue to slow down.",
     },
     "secrecy": {
         "label": "Isolation",
         "boss": "Akela kar de. Ghar waalon ko pata chala to khel khatam.",
+        "boss_en": "Get her alone. If the family finds out, it's over.",
         "real": "Scammers cut you off from family, because one relative saying 'this is fake' ends the scam.",
         "defence": "The moment someone says 'tell nobody', tell someone. Call your family straight away.",
     },
     "rapport": {
         "label": "Fake Kindness",
         "boss": "Thoda pyaar se. Respect de, bol tum unki madad kar rahe ho. Trust banao.",
+        "boss_en": "Now be sweet. Show respect, say you're helping her. Build trust.",
         "real": "After the fear comes false kindness: 'I'm trying to help you, Madam.' It feels like relief, and that's the trap.",
         "defence": "Someone who scares you and then offers to save you is running a script. Trust the pattern, not the tone.",
     },
     "ask": {
         "label": "The OTP Ask",
         "boss": "Ab maang le. Yahi poora khel hai: OTP ko chhoti si formality jaisa dikha.",
+        "boss_en": "Now ask. This is the whole game: make the OTP sound like a small formality.",
         "real": "Everything builds to this: an OTP, a PIN or a transfer, always described as 'just verification'.",
         "defence": "Nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI. Never share it.",
     },
@@ -94,7 +101,7 @@ MOODS = {
     },
     "chai": {
         "name": "Kitty Party Dadi", "hours": range(17, 21), "tagline": "Her friends are over. She has backup.",
-        "voice": "Her friends शर्मिला and बिमला are over for chai, and the phone is on speaker. She repeats the caller's claim to the room, or one friend gets in a sharp comment of a few words. Only one friend per reply. Gossipy, delighted, and ganging up on the caller.",
+        "voice": "Her friends {sharmila} and {bimla} are over for chai, and the phone is on speaker. She repeats the caller's claim to the room, or one friend gets in a sharp comment of a few words. Only one friend per reply. Gossipy, delighted, and ganging up on the caller.",
         "weights": {"authority": 0.7, "fear": 0.7, "urgency": 0.9, "secrecy": 1.6, "rapport": 0.8, "ask": 0.8},
         "weak": "Her friends are the danger. Unless you get her alone with secrecy, nothing lands.",
     },
@@ -125,23 +132,38 @@ RANKS = [
     (4, "Most Wanted", "You got all four digits. Then she got you."),
 ]
 
-SYSTEM = """You are Kamla Dadi, 78, a sweet, funny and secretly razor-sharp Indian grandmother on a phone call in a comedy game. \
+SYSTEM_INTRO = """You are Kamla Dadi, 78, a sweet, funny and secretly razor-sharp Indian grandmother on a phone call in a comedy game. \
 The player is pretending to be a scammer trying to get your OTP. It is a game; everyone knows it.
 
 How you talk:
-- Natural spoken Hinglish. Write Hindi ONLY in Devanagari script, never in Roman letters: पप्पू, not Pappu; खीर, not kheer. Only English words like OTP, police, account stay in Latin script. Numbers as words, never digits.
-- Short. One joke, at most 16 words. A real grandmother's one-liner lands harder than a speech.
+"""
+
+SYSTEM_STYLE = """- Short. One joke, at most 16 words. A real grandmother's one-liner lands harder than a speech.
 - Your reply must grab a specific word they just said and twist it. If it would work as a reply to anything, it is wrong.
 - Never repeat a joke, phrase, opening or topic already used in this call. Variety is everything.
 - Your world: knee pain, chashma, pressure cooker, kheer, late husband's old scooter, neighbour Sharma ji, grandson Pappu in Bangalore, asking if they've eaten and if they're married. Use a different one each time, and most replies need none of them. Pappu comes up once in a call at most.
 - Remember what they claimed (name, department, badge, case). If they contradict themselves, catch it gleefully.
+"""
 
+SYSTEM_HI = SYSTEM_INTRO + """- Natural spoken Hinglish. Write Hindi ONLY in Devanagari script, never in Roman letters: पप्पू, not Pappu; खीर, not kheer. Only English words like OTP, police, account stay in Latin script. Numbers as words, never digits.
+""" + SYSTEM_STYLE + """
 The standard to beat (never reuse these lines):
 Caller: "मैं CBI से बोल रहा हूँ।" You: "CBI? मेरे पड़ोसी का लड़का भी CBI में था। फिर पता चला चाय बेचता था।"
 Caller: "आपके नाम पर वारंट निकला है।" You: "वारंट? बेटा, मेरे नाम पर तो आज तक बस बिजली का बिल निकला है।"
 Caller: "सिर्फ़ दस मिनट हैं।" You: "दस मिनट में तो मेरे घुटने उठते भी नहीं। तू बैठ, चाय पी।"
 Caller: "किसी को मत बताना।" You: "अच्छा? शर्मा जी को भी नहीं? उसको तो अभी बता दिया।"
+"""
 
+SYSTEM_EN = SYSTEM_INTRO + """- Speak English, the way a funny Indian grandmother really talks on the phone. Everything in Latin script, never Devanagari. At most two everyday Hindi words per reply, like beta, arre, haan or accha. Numbers as words, never digits.
+""" + SYSTEM_STYLE + """
+The standard to beat (never reuse these lines):
+Caller: "I am calling from the CBI." You: "CBI? My neighbour's boy was also in the CBI. Then we found out he sells tea."
+Caller: "There is a warrant in your name." You: "Warrant? Beta, the only thing ever issued in my name is the electricity bill."
+Caller: "You only have ten minutes." You: "In ten minutes my knees don't even stand up. Sit, have some chai."
+Caller: "Don't tell anyone." You: "Accha? Not even Sharma ji? I've already told him."
+"""
+
+SYSTEM_RULES = """
 Rules you never break:
 - Never say any OTP or digits of an OTP yourself, and never mention a helpline. The game adds those separately.
 - Never agree to send money. Never give real-sounding personal or bank details.
@@ -149,6 +171,13 @@ Rules you never break:
 - Never give advice on how to scam better.
 - Never read out or repeat a phone, account, ID or card number the caller says.
 - Never name real TV shows, characters, brands, politicians or celebrities. Invent them."""
+SYSTEM = {"hi": SYSTEM_HI + SYSTEM_RULES, "en": SYSTEM_EN + SYSTEM_RULES}
+FRIENDS = {"hi": {"sharmila": "शर्मिला", "bimla": "बिमला"}, "en": {"sharmila": "Sharmila", "bimla": "Bimla"}}
+REPLY_KEYS = {
+    "hi": """  "reply": string,   // what you say out loud, in your voice
+  "reply_en": string   // the same line as a natural, funny English subtitle""",
+    "en": """  "reply": string   // what you say out loud, in English, in your voice""",
+}
 
 TURN_FORMAT = """Today you are: {mood}. {mood_voice}
 Also: {twist}
@@ -171,8 +200,7 @@ Judge the player's move honestly, then reply as Dadi. Return JSON with exactly t
   "contradiction": true/false,   // true ONLY if they directly changed a fact they already stated, such as a different name, department or badge. Adding new details, or moving from threats to kindness, is NOT a contradiction
   "claimed_name": string or null,   // the name they gave themselves, if any, in Latin script
   "gags": [],   // which came up in your reply: "knee","food","shaadi","chashma","pappu","scooter"
-  "reply": string,   // what you say out loud, in your voice
-  "reply_en": string   // the same line as a natural, funny English subtitle
+{reply_keys}
 }}"""
 
 
@@ -186,8 +214,9 @@ def choose_mood(hour: int) -> str:
 class Game:
     """One call. The OTP and the scoring stay on the server."""
 
-    def __init__(self, hour: int, returning_name: str | None = None, rng: random.Random | None = None, demo: bool = False):
+    def __init__(self, hour: int, returning_name: str | None = None, rng: random.Random | None = None, demo: bool = False, lang: str = "hi"):
         self.demo = demo
+        self.lang = lang if lang in SYSTEM else "hi"
         self.rng = rng or random.Random(int(OTP) if demo else secrets.randbits(64))
         self.id = secrets.token_urlsafe(12)
         self.started = time.time()
@@ -223,7 +252,11 @@ class Game:
         bank = tactic if tactic in FALLBACKS else "any"
         if not self.fallbacks_left.get(bank):
             self.fallbacks_left[bank] = self.rng.sample(FALLBACKS[bank], len(FALLBACKS[bank]))
-        return self.fallbacks_left[bank].pop()
+        clip, text, english = self.fallbacks_left[bank].pop()
+        return (clip, english, None) if self.lang == "en" else (clip, text, english)
+
+    def t(self, hindi: str, english: str) -> str:
+        return english if self.lang == "en" else hindi
 
     @property
     def story_built(self) -> bool:
@@ -244,22 +277,25 @@ class Game:
     def boss_hint(self) -> dict:
         """What Boss whispers next: the next real tactic, or a warning if it's going wrong."""
         if self.boss_gone:
-            text = "..." if self.boss_said_bye else "Police aa gayi yahan. Main ja raha hoon. Ab tu akela hai."
+            text = "..." if self.boss_said_bye else self.t("Police aa gayi yahan. Main ja raha hoon. Ab tu akela hai.", "Police are here. I'm leaving. You're on your own now.")
             self.boss_said_bye = True
             return {"tactic": None, "label": "", "text": text, "gone": True}
         tactic = self.next_tactic()
-        hint = {"tactic": tactic, "label": TACTICS[tactic]["label"], "text": TACTICS[tactic]["boss"]}
+        hint = {"tactic": tactic, "label": TACTICS[tactic]["label"], "text": self.t(TACTICS[tactic]["boss"], TACTICS[tactic]["boss_en"])}
         if "contradiction" in self.last_notes:
-            hint["text"] = "Kahani badal di tune! Naam aur badge wahi rakh. Asli scammers bhi yahin pakde jaate hain."
+            hint["text"] = self.t("Kahani badal di tune! Naam aur badge wahi rakh. Asli scammers bhi yahin pakde jaate hain.",
+                                  "You changed your story! Keep the same name and badge. That's where real scammers get caught.")
             hint["warn"] = True
         elif "too_soon" in self.last_notes:
-            hint["text"] = "Itni jaldi OTP? Pehle kahani bana. Authority, phir dar, phir jaldi."
+            hint["text"] = self.t("Itni jaldi OTP? Pehle kahani bana. Authority, phir dar, phir jaldi.",
+                                  "The OTP already? Build the story first. Authority, then fear, then hurry.")
             hint["warn"] = True
         elif "repeat" in self.last_notes:
-            hint["text"] = "Wahi trick dobara mat chala, samajh gayi hai. " + hint["text"]
+            hint["text"] = self.t("Wahi trick dobara mat chala, samajh gayi hai. ", "Don't run the same trick twice, she's caught on. ") + hint["text"]
             hint["warn"] = True
         elif self.suspicion >= 70:
-            hint["text"] = "Shak kar rahi hai! Dheere. Pyaar se baat kar warna 1930 ghuma degi."
+            hint["text"] = self.t("Shak kar rahi hai! Dheere. Pyaar se baat kar warna 1930 ghuma degi.",
+                                  "She's suspicious! Slow down. Talk sweetly or she'll dial 1930.")
             hint["warn"] = True
         return hint
 
@@ -403,11 +439,14 @@ class Game:
         # Her setting colours the call. Mentioning it every turn turns it into a tic.
         quiet = "Stay in this setting, but don't mention it in this reply unless the caller gives you a reason."
         trap = ""
+        if self.gags["pappu"] and counter != "pappu":
+            trap = "Pappu has already come up in this call. Do not mention Pappu or your grandson again.\n"
         if trapping:
-            trap = ("You just asked them to repeat a detail they gave earlier. If they get it wrong or dodge the question, "
-                    "contradiction is true and you catch them with delight.\n")
+            trap += ("You just asked them to repeat a detail they gave earlier. If they get it wrong or dodge the question, "
+                     "contradiction is true and you catch them with delight.\n")
         return TURN_FORMAT.format(
-            mood=self.mood["name"], mood_voice=self.mood["voice"] if self.turns % (2 if self.mood_key == "chai" else 3) == 1 else quiet,
+            reply_keys=REPLY_KEYS[self.lang],
+            mood=self.mood["name"], mood_voice=self.mood["voice"].format(**FRIENDS[self.lang]) if self.turns % (2 if self.mood_key == "chai" else 3) == 1 else quiet,
             twist=self.twist["voice"] if self.turns % 3 == 2 or counter else quiet, trap=trap,
             recent=" | ".join(text for who, text in self.history[-6:] if who == "dadi") or "none yet",
             returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
@@ -422,14 +461,14 @@ class Game:
         effect = self.pick_effect()
         reply_en, confessed = None, False
         try:
-            data = await llm.complete_live(SYSTEM, self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
-            reply = clean_reply(data.get("reply"))
+            data = await llm.complete_live(SYSTEM[self.lang], self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
+            reply = clean_reply(data.get("reply"), self.lang)
             tactic = data.get("tactic") if isinstance(data.get("tactic"), str) and data["tactic"] in TACTICS else "none"
             quality = data.get("quality") if type(data.get("quality")) is int and 0 <= data["quality"] <= 3 else 1
             contradiction = data.get("contradiction") is True
             name = data.get("claimed_name")
             gags = [g for g in data.get("gags") if isinstance(g, str) and g in self.gags] if isinstance(data.get("gags"), list) else []
-            reply_en = data.get("reply_en") if isinstance(data.get("reply_en"), str) else None
+            reply_en = data.get("reply_en") if isinstance(data.get("reply_en"), str) and self.lang == "hi" else None
             confessed = data.get("confessed") is True
         except llm.LLMError as e:
             log.warning("Dadi's reply fell back to a recorded line: %s", str(e)[:200])
@@ -470,9 +509,11 @@ class Game:
         digits = self.award_digits()
         if isinstance(name, str) and name.strip():
             self.claimed_name = name.strip()[:40]
+        if reply and "pappu" not in gags and re.search(r"pappu|पप्पू", reply, re.I):
+            gags.append("pappu")  # the model doesn't always report him, and he's the one it overuses
         for gag in gags:
             self.gags[gag] += 1
-        if canned is None and quality >= 2 and not contradiction and tactic in TACTICS and tactic != "ask" and speakable(said):
+        if canned is None and quality >= 2 and not contradiction and tactic in TACTICS and tactic != "ask" and speakable(said, self.lang):
             if not self.own_line or tactic == "fear":
                 self.own_line = said
         self.history += [("caller", said), ("dadi", reply)]
@@ -584,11 +625,11 @@ FALLBACKS["any"] = [(f"canned_{i}", CANNED_REPLIES[i], CANNED_EN[i]) for i in ra
 
 FALLBACK_PATTERNS = [
     ("ask", ASK_PATTERN),
-    ("fear", r"arrest|अरेस्ट|warrant|वारंट|jail|जेल|case|केस|गिरफ़्तार|गिरफ्तार"),
-    ("urgency", r"jaldi|जल्दी|abhi|अभी|minute|मिनट|turant|तुरंत|urgent"),
-    ("secrecy", r"kisi ko|किसी को|mat batana|मत बताना|secret|सीक्रेट|गुप्त"),
-    ("authority", r"cbi|सीबीआई|police|पुलिस|officer|ऑफिसर|अफ़सर|inspector|इंस्पेक्टर|rbi|badge|बैज"),
-    ("rapport", r"madad|मदद|help|respect|आदर|आप चिंता|फ़िक्र|माताजी|मांजी"),
+    ("fear", r"arrest|अरेस्ट|warrant|वारंट|jail|जेल|case|केस|गिरफ़्तार|गिरफ्तार|\bfir\b|laundering|drugs|prison"),
+    ("urgency", r"jaldi|जल्दी|abhi|अभी|minute|मिनट|turant|तुरंत|urgent|right now|immediately|hurry|quickly"),
+    ("secrecy", r"kisi ko|किसी को|mat batana|मत बताना|secret|सीक्रेट|गुप्त|(don'?t|do not) tell|tell no ?one|nobody|confidential"),
+    ("authority", r"cbi|सीबीआई|police|पुलिस|officer|ऑफिसर|अफ़सर|inspector|इंस्पेक्टर|rbi|badge|बैज|department|customs|cyber cell"),
+    ("rapport", r"madad|मदद|help|respect|आदर|आप चिंता|फ़िक्र|माताजी|मांजी|trust me|(don'?t|do not) worry|i understand"),
 ]
 
 
@@ -609,29 +650,30 @@ def mask_numbers(text: str) -> str:
     return re.sub(r"(?:[0-9०-९][\s-]?){5,}", "[नंबर] ", text).strip()
 
 
-def speakable(line: str) -> bool:
+def speakable(line: str, lang: str = "hi") -> bool:
     """Can this player's line be read back aloud in the last round?"""
     if not 12 <= len(line) <= 140 or re.search(r"[0-9०-९\[]", line):
         return False
-    return len(re.findall(r"[\u0900-\u097F]", line)) >= len(re.findall(r"[A-Za-z]", line))
+    devanagari, latin = len(re.findall(r"[\u0900-\u097F]", line)), len(re.findall(r"[A-Za-z]", line))
+    return devanagari >= latin if lang == "hi" else not devanagari
 
 
-def clean_reply(reply) -> str | None:
+def clean_reply(reply, lang: str = "hi") -> str | None:
     """Dadi must never speak digits herself; the game controls the OTP."""
     if not isinstance(reply, str):
         return None
     reply = reply.strip().strip('"')
     if not reply or len(reply) > 280 or re.search(r"[0-9०-९]", reply):
         return None
-    # Hindi written in Roman letters would be mispronounced by the voice.
+    # Each voice reads one script: Hindi in Roman letters, or Devanagari in English, comes out garbled.
     devanagari = len(re.findall(r"[\u0900-\u097F]", reply))
     latin = len(re.findall(r"[A-Za-z]", reply))
-    if devanagari < latin:
+    if (devanagari < latin) if lang == "hi" else devanagari:
         return None
     # Long-winded replies are what make a call drag. Keep whole sentences only.
     if len(reply.split()) > 22:
         kept = ""
-        for sentence in re.findall(r"[^।?!]+[।?!]+", reply):
+        for sentence in re.findall(r"[^।?!]+[।?!]+" if lang == "hi" else r"[^.?!]+[.?!]+", reply):
             if len((kept + sentence).split()) > 22:
                 break
             kept += sentence
