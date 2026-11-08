@@ -8,8 +8,10 @@ import asyncio
 import json
 import logging
 import random
+import re
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
@@ -17,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config, game, tts
+from . import config, game, scoring, tts
 from .storage import store
 from .stt import PrismaStream
 
@@ -38,6 +40,27 @@ stats = {
     "quiz_before": [0, 0], "quiz_after": [0, 0],  # [answered correctly, answered]
 }
 _stats_dirty = False
+IST = timezone(timedelta(hours=5, minutes=30))
+BOARD_SIZE = 50
+boards: dict[str, list[dict]] = {}   # date -> the day's top runs, cached from storage
+_board_lock = asyncio.Lock()
+
+
+def today() -> str:
+    return datetime.now(IST).strftime("%Y-%m-%d")
+
+
+async def load_board(date: str) -> list[dict]:
+    if date not in boards:
+        try:
+            saved = await store.get(f"daily/{date}.json")
+            boards[date] = json.loads(saved) if saved else []
+        except Exception as e:
+            log.warning("Could not load the daily board: %s", e)
+            return []
+        for old in [d for d in boards if d < date]:
+            del boards[old]
+    return boards[date]
 
 
 @app.on_event("startup")
@@ -113,6 +136,9 @@ class Start(BaseModel):
     quiz: bool | None = None
     demo: bool = False
     lang: Literal["hi", "en"] = "hi"
+    code: str | None = Field(default=None, max_length=8)   # a friend's challenge
+    daily: bool = False
+    boss_off: bool = False
 
 
 def _audio(g: game.Game, clip: str) -> str:
@@ -131,7 +157,10 @@ async def start_game(body: Start, request: Request):
         raise HTTPException(status_code=429, detail="Dadi has gone for her nap. Try again in a while.")
     hits.append(now)
 
-    g = game.Game(body.hour, None if body.demo else body.returning_name, demo=body.demo, lang=body.lang)
+    code = game.daily_code(today()) if body.daily else body.code
+    # A returning caller makes her warier, so shared scenarios ignore it to stay fair.
+    returning = None if body.demo or body.daily or body.code else body.returning_name
+    g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily)
     games[g.id] = g
     if body.quiz is not None and not g.demo:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
@@ -144,6 +173,7 @@ async def start_game(body: Start, request: Request):
         "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
         "story_built": g.story_built, "demo": g.demo, "lang": g.lang,
+        "code": g.code, "daily": g.daily, "boss_off": g.boss_off,
     }
 
 
@@ -250,6 +280,8 @@ async def end_game(game_id: str):
     g = _get_game(game_id)
     if not g.outcome:
         g.finish_state(_seconds_left(g))
+    if not g.outcome:  # they hung up, or their clock ran out first
+        g.outcome = "hung_up"
     first_report = not getattr(g, "reported", False)
     report = g.report()
     if first_report and not g.demo:
@@ -269,17 +301,70 @@ async def end_game(game_id: str):
     return report
 
 
-class Quiz(BaseModel):
-    answer: bool
+class Answers(BaseModel):
+    answers: list[int] = Field(max_length=3)
 
 
-@app.post("/api/quiz")
-async def quiz_after(body: Quiz):
+@app.post("/api/game/{game_id}/answers")
+async def answer_questions(game_id: str, body: Answers):
+    """The three questions about this run. The first answers are the ones that count."""
     global _stats_dirty
-    stats["quiz_after"][0] += 1 if body.answer is False else 0
-    stats["quiz_after"][1] += 1
-    _stats_dirty = True
-    return {"correct": body.answer is False}
+    g = _get_game(game_id)
+    if not g.outcome:
+        raise HTTPException(status_code=409, detail="Finish the call first.")
+    first = g.knowledge is None
+    result = scoring.grade(g, body.answers)
+    if first and not g.demo:
+        stats["quiz_after"][0] += sum(result["correct"])
+        stats["quiz_after"][1] += len(result["correct"])
+        _stats_dirty = True
+    return result
+
+
+class Submit(BaseModel):
+    name: str = Field(min_length=2, max_length=16)
+
+
+@app.post("/api/game/{game_id}/submit")
+async def submit_score(game_id: str, body: Submit):
+    """Put a daily run on today's board. The score comes from the server's own record."""
+    g = _get_game(game_id)
+    name = " ".join(body.name.split())
+    if not re.fullmatch(r"[\w .-]{2,16}", name):
+        raise HTTPException(status_code=400, detail="Use letters and numbers only.")
+    if not scoring.ranked(g) or g.knowledge is None or not g.outcome:
+        raise HTTPException(status_code=409, detail="This run can't go on the board.")
+    if getattr(g, "submitted", False):
+        raise HTTPException(status_code=409, detail="Already on the board.")
+    date = today()
+    if g.code != game.daily_code(date):
+        raise HTTPException(status_code=409, detail="That was yesterday's Dadi.")
+    g.submitted = True
+    result = scoring.final(g)
+    entry = {"name": name, "score": result["score"], "knowledge": result["knowledge"], "digits": g.digits,
+             "boss_off": g.boss_off, "at": int(time.time())}
+    async with _board_lock:
+        board = await load_board(date)
+        board.append(entry)
+        board.sort(key=lambda e: (-e["score"], e["at"]))
+        del board[BOARD_SIZE:]
+        rank = board.index(entry) + 1 if entry in board else None
+        try:
+            await store.put(f"daily/{date}.json", json.dumps(board).encode(), "application/json")
+        except Exception as e:
+            log.warning("Could not save the daily board: %s", e)
+    return {"rank": rank, "of": len(board), "top": board[:10]}
+
+
+@app.get("/api/daily")
+async def daily_board():
+    date = today()
+    code = game.daily_code(date)
+    mood = game.MOODS[game.MOOD_KEYS[int(code[0])]]
+    twist = game.TWISTS[game.TWIST_KEYS[int(code[1])]]
+    board = await load_board(date)
+    return {"date": date, "code": code, "mood": mood["name"], "tagline": mood["tagline"], "twist": twist["label"],
+            "top": board[:10], "players": len(board)}
 
 
 @app.websocket("/ws/listen")

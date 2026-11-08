@@ -127,6 +127,21 @@ The idea is inspired by inoculation research, which found that playing the manip
 
 </details>
 
+## Score, replay, today's challenge
+
+Getting the digits is half of it. Every call ends with a **Nazar Score** out of 100:
+
+| Part | Points |
+|---|---|
+| The call: digits, how calm she stayed, whether your story held, speed | up to 60 |
+| Playing **without Boss**: no hints, you read her yourself | up to 10 |
+| **Spot the red flags**: three questions built from your own call | up to 30 |
+| Red flags you used, like stopping her from checking with the police | −8 each |
+
+Then **your run**, moment by moment: what each move did to her trust and suspicion, the turning point, *why* it turned, and the real-world red flag it teaches. Your words are shown only to you and never stored.
+
+**Today's challenge** is the same Dadi, the same condition and the same counter-moves for everyone, with a daily leaderboard. **Challenge a friend** sends them your exact Dadi and your score to beat. Runs where Dadi's AI was down for too much of the call stay playable but aren't ranked.
+
 ## Phrasebook
 
 <img src="docs/readme/phrasebook.png" alt="The game speaks Hindi and Hinglish, with English subtitles on Dadi's live replies. Dadi: grandmother, on your father's side. Beta: child, what she calls you right before she destroys you. Khana khaya: have you eaten, the most dangerous question in India. Thana: police station, where she's about to call. Shaadi kab: when's the wedding, there's no escaping this one. Zor se bol: speak up, her hearing-aid battery is low, allegedly. OTP: one-time password, never ever share a real one." width="100%">
@@ -186,7 +201,7 @@ Boss's hints stay at the level of public fraud-awareness material: tactics peopl
 <details>
 <summary><b>Can I actually beat her?</b></summary>
 
-You can get all four digits. Whether that counts as winning is another matter.
+You can get all four digits. Whether that counts as winning is another matter. A high score is harder: it takes a clean story, no Boss, and spotting every red flag in your own call.
 
 </details>
 

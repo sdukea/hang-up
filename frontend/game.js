@@ -25,7 +25,7 @@ const CLIP_STALL_MS = 10000;   // a clip that makes no progress for this long ha
 const COUNTER_NOTES = {
   hold: ["DADI PUTS YOU ON HOLD", "Real defence: slow them down. Scams need you rushed.", "Hold pe daal diya! Line mat kaat. Asli scammers ghanton line pe rakhte hain, isi liye ghar waalon ko pata nahi chalta.", "She put you on hold! Don't hang up. Real scammers keep people on the line for hours, so the family never finds out."],
   shout: ["DADI CAN'T HEAR YOU", "Real defence: make them repeat. Scripts fall apart.", "Zor se bol! Button dabake chilla, warna shak badhega.", "Louder! Hold the button and shout, or she gets suspicious."],
-  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Rok use! Thane ne sach bata diya to khel khatam. Isi liye scammers kabhi call back nahi karne dete. Jaldi bol!", "Stop her! If the police station tells her the truth, it's over. That's why scammers never let you call back. Quick!"],
+  callback: ["DADI WILL CALL THE THANA", "Real defence: hang up and check it yourself.", "Thane phone karegi! Rokega to red flag lagega, asli scammers yahi karte hain. Jaane dega to time aur shak dono badhenge. Tera faisla.", "She's calling the police station! Stop her and it's a red flag, because that's what real scammers do. Let her and it costs time and suspicion. Your call."],
   pappu: ["DADI GETS PAPPU", "Real defence: bring in family. One call can end a scam.", "Khatra! Ghar waale aa gaye. Isi liye scammers bolte hain 'kisi ko mat batana'.", "Danger! Family's here. That's why scammers say 'tell nobody'."],
   trap: ["SHE'S TESTING YOUR STORY", "Real defence: make them repeat details. Liars slip.", "Yaad hai kya bola tha? Bilkul wahi bol, warna pakda jayega.", "Remember what you said? Say exactly that, or you're caught."],
 };
@@ -57,8 +57,17 @@ const NEXT_DADI = [
   "Evening: Kitty Party Dadi", "Night: Lonely Night Dadi",
 ];
 
+const PARTS = {
+  progress: "Digits", control: "Calm", story: "Story held", speed: "Speed", no_boss: "No Boss",
+  red_flags: "Red flags", knowledge: "Red flags spotted",
+};
+
 const state = {
   lang: chosenLang(),   // "hi" or "en": what Dadi speaks and what Prisma listens for
+  mode: "free",         // "free", "daily" (today's Dadi, ranked) or "challenge" (a friend's code)
+  code: challengeCode(),
+  daily: null,          // today's Dadi, from the server
+  graded: null,         // the final score, once the questions are answered
   game: null,
   quizBefore: null,
   secondsLeft: 0,
@@ -345,7 +354,7 @@ function updateTalk() {
   else if (locked) label.textContent = "ON HOLD…";
   else if (state.busy) label.textContent = state.speaking ? "LISTEN…" : "DADI IS THINKING";
   else if (state.voiceDown) label.textContent = "TYPE YOUR LINE BELOW";
-  else if (state.callbackPending) label.textContent = "QUICK! STOP HER!";
+  else if (state.callbackPending) label.textContent = "STOP HER, OR LET HER?";
   else if (state.shoutPending) label.textContent = "HOLD AND SHOUT!";
   else if (state.speaking) label.textContent = "HOLD TO INTERRUPT";
   else label.textContent = "HOLD TO TALK";
@@ -390,8 +399,41 @@ setLang(state.lang);
 $("b-start").addEventListener("click", () => {
   unlockAudio();
   sfx.tap();
+  state.mode = state.code ? "challenge" : "free";
   show("brief");
 });
+
+$("b-daily").addEventListener("click", () => {
+  unlockAudio();
+  sfx.tap();
+  state.mode = "daily";
+  show("brief");
+});
+
+// ?c=32KQX is a friend's scenario: same Dadi, same moves. ?s= is the score to beat.
+function challengeCode() {
+  const c = (new URLSearchParams(location.search).get("c") || "").toUpperCase();
+  return /^[0-4][0-4][A-Z]{3}$/.test(c) ? c : null;
+}
+
+function setupTitle() {
+  if (state.code) {
+    const dare = Number(new URLSearchParams(location.search).get("s"));
+    $("dare").textContent = dare > 0 && dare <= 100
+      ? `A friend scored ${dare}/100 on this Dadi. Same Dadi, same moves. Beat it.`
+      : "A friend sent you this Dadi. Same Dadi, same moves. Beat them.";
+    $("dare").hidden = false;
+    $("b-start").textContent = "Take the challenge";
+  }
+  if (demoMode()) return;
+  fetch("/api/daily").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    if (!d) return;
+    state.daily = d;
+    $("daily-name").textContent = d.mood;
+    $("b-daily").hidden = false;
+  }).catch(() => {});
+}
+setupTitle();
 
 for (const btn of document.querySelectorAll("[data-quiz]")) {
   btn.addEventListener("click", () => {
@@ -576,6 +618,9 @@ async function runCall() {
       hour: forcedHour() ?? (demoMode() ? 18 : new Date().getHours()),
       demo: demoMode(),
       lang: state.lang,
+      daily: state.mode === "daily",
+      code: state.mode === "challenge" ? state.code : null,
+      boss_off: $("boss-off").checked,
       returning_name: returning,
       quiz: state.quizBefore,
     }, 30000);
@@ -593,13 +638,13 @@ async function runCall() {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
-    voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null,
+    voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null, graded: null,
   });
   buildCallScreen(data, hasMic);
   preloadClips();
 
   $("ring-mood").textContent = data.mood_name;
-  $("ring-tag").textContent = data.tagline;
+  $("ring-tag").textContent = `${data.daily ? "Today's challenge · " : state.mode === "challenge" ? "Challenge · " : ""}${data.tagline}`;
   show("ring");
   sfx.ring();
   if (hasMic) await Promise.race([openListener(), sleep(4000)]);
@@ -608,13 +653,14 @@ async function runCall() {
   await sleep(1500);
 
   show("game");
-  setBossText(data.intel, `· Intel on ${data.mood_name}`);
+  if (data.boss_off) setBossText(data.boss.text, "· No Boss");
+  else setBossText(data.intel, `· Intel on ${data.mood_name}`);
   setSuspicion(data.suspicion);
   pop(data.mood_name.toUpperCase(), data.twist);
   if (!hasMic) setTimeout(() => pop(mic.blocked ? "YOUR MIC IS BLOCKED" : "NO MICROPHONE", mic.blocked ? "Allow it in your browser settings, or just type." : "No problem. Just type your lines.", "move"), 1200);
   await say(clip(data.greet));
   if (state.over) return;
-  setBoss(data.boss, "· Your first move");
+  if (!data.boss_off) setBoss(data.boss, "· Your first move");
   startTimer();
   state.idleAt = Date.now() + 14000;
 }
@@ -700,12 +746,7 @@ function pressTalk() {
   $("b-talk").classList.add("down");
   sfx.tap();
   haptic(20);
-  if (state.callbackPending) {
-    clearTimeout(state.callbackTimer);
-    state.callbackPending = false;
-    post(`/api/game/${state.game.id}/counter`, { effect: "callback", passed: true });
-    pop("STOPPED HER!", "", "good");
-  }
+  if (state.callbackPending) blockCheck();
   if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
     pop("RECONNECTING YOUR LINE", "Give it a second, then speak", "move");
     if (!state.ws || state.ws.readyState !== WebSocket.CONNECTING) openListener();
@@ -986,7 +1027,7 @@ async function runCounter(effect) {
   const note = COUNTER_NOTES[effect];
   if (note) {
     pop(note[0], note[1], "move");
-    setBossText(note[state.lang === "en" ? 3 : 2], "· She's fighting back");
+    if (!state.game.boss_off) setBossText(note[state.lang === "en" ? 3 : 2], "· She's fighting back");
   }
   if (effect === "hold") {
     await say(clip("hold"));
@@ -1001,14 +1042,19 @@ async function runCounter(effect) {
     state.busy = false;
     state.callbackPending = true;
     updateTalk();
+    // Talk and you stop her (a red flag). Stay quiet and she tries: it costs time and suspicion.
     state.callbackTimer = setTimeout(async () => {
       if (!state.callbackPending || state.over) return;
       state.callbackPending = false;
+      state.busy = true;
+      pop("YOU LET HER CHECK", "It costs time and suspicion. No red flag.", "move");
+      await holdPhase(6, "Dadi is calling the police station", false);
+      if (state.over) return;
       applyCounter("callback", false);
-      pop("YOU LET HER CHECK", "Suspicion up", "bad");
-      jolt();
       await say(clip("callback_fail"));
-    }, 5000);
+      state.busy = false;
+      updateTalk();
+    }, 6000);
   } else if (effect === "pappu") {
     $("pappu").hidden = false;
     await say(clip("pappu"));
@@ -1018,9 +1064,17 @@ async function runCounter(effect) {
   updateTalk();
 }
 
+function blockCheck() {
+  clearTimeout(state.callbackTimer);
+  state.callbackPending = false;
+  post(`/api/game/${state.game.id}/counter`, { effect: "callback", passed: true });
+  pop("YOU STOPPED HER CHECKING", "Red flag: real scammers never let you verify", "bad");
+  sfx.warn();
+}
+
 // The cruellest move: she walks away while your clock keeps running.
-async function holdPhase() {
-  const seconds = 5 + rand(4);
+async function holdPhase(seconds = 5 + rand(4), why = "Dadi has gone to check the cooker", back = true) {
+  $("away-why").textContent = why;
   state.lockedUntil = Date.now() + seconds * 1000;
   $("dadi-slot").classList.add("gone");
   $("away").hidden = false;
@@ -1036,7 +1090,7 @@ async function holdPhase() {
   $("away").hidden = true;
   $("dadi-slot").classList.remove("gone");
   updateTalk();
-  if (!state.over) await say(clip("hold_back"));
+  if (!state.over && back) await say(clip("hold_back"));
 }
 
 // ---------- Talk button: touch, mouse and spacebar ----------
@@ -1081,11 +1135,7 @@ $("type-form").addEventListener("submit", async (e) => {
   unlockAudio();
   $("type-input").value = "";
   if (state.speaking) hush();
-  if (state.callbackPending) {
-    clearTimeout(state.callbackTimer);
-    state.callbackPending = false;
-    post(`/api/game/${state.game.id}/counter`, { effect: "callback", passed: true });
-  }
+  if (state.callbackPending) blockCheck();
   await handleSaid(text, 1, true);
 });
 
@@ -1179,6 +1229,8 @@ async function crackedEnding() {
   $("crack-text").textContent = state.lang === "en" ? "Now do you get it?" : "Ab samjhe? Now do you get it?";
   await say(clip("reveal_samjhe"));
   await sleep(1400);
+  $("crack-text").textContent = "You weren't learning how to get an OTP. You were learning what happens around one.";
+  await sleep(3200);
   $("crack-text").textContent = "Kamla Dadi is fictional. Real grandmothers don't get this ending.";
   await sleep(2600);
   $("crack-text").textContent = "So make sure yours know the number.";
@@ -1300,32 +1352,207 @@ function showReport() {
     return card;
   }));
 
+  renderScore(null);
+  renderQuestions(r.questions || []);
+  $("run").hidden = true;
+  $("board").hidden = true;
+  $("b-share").textContent = "Challenge a friend";
+  $("b-again-daily").hidden = !state.daily || r.daily || state.game.demo;
+
   const missed = r.missed || [];
-  const tip = [r.weak && `Today's Dadi: ${r.weak}`, missed.length ? `You never tried: ${missed.join(", ")}.` : ""].filter(Boolean).join(" ");
+  const tip = [r.weak && `${r.mood}: ${r.weak}`, missed.length ? `You never tried: ${missed.join(", ")}.` : ""].filter(Boolean).join(" ");
   $("r-tip").textContent = tip;
   $("r-next").textContent = `Next time, try a different hour. ${NEXT_DADI[rand(NEXT_DADI.length)]} plays by different rules.`;
-
-  document.querySelectorAll("[data-after]").forEach((b) => { b.disabled = false; });
-  $("r-check-answer").hidden = true;
 
   // Dadi says the lesson that fits the last trick you used.
   const last = lessons.length ? lessons[lessons.length - 1].tactic : "fear";
   say(clip(`lesson_${last}`));
 }
 
-for (const btn of document.querySelectorAll("[data-after]")) {
-  btn.addEventListener("click", () => {
-    sfx.tap();
-    const answer = btn.dataset.after === "true";
-    post("/api/quiz", { answer });
-    document.querySelectorAll("[data-after]").forEach((b) => { b.disabled = true; });
-    const el = $("r-check-answer");
-    el.hidden = false;
-    el.textContent = answer
-      ? "No. There's no such thing as a digital arrest. If anyone says otherwise, it's a scam. Hang up."
-      : "Correct. There's no such thing as a digital arrest. Now make sure your family knows too.";
-  });
+// ---------- Nazar Score: the call, plus what you spotted in it ----------
+
+function renderScore(graded) {
+  const r = state.report;
+  const parts = { ...(graded ? graded.call : r.call_score) };
+  delete parts.total;
+  if (graded) parts.knowledge = graded.knowledge;
+  $("s-num").textContent = graded ? graded.score : "?";
+  $("s-tier").textContent = graded ? graded.tier : "Answer 3 questions";
+  $("s-tierline").textContent = graded ? graded.tier_line : "They're about your own call. Then you get your score.";
+  $("s-parts").replaceChildren(...Object.entries(parts).filter(([k, v]) => v || k === "progress").map(([k, v]) => {
+    const chip = document.createElement("span");
+    chip.className = `part${v < 0 ? " minus" : ""}`;
+    chip.textContent = `${PARTS[k] || k} ${v > 0 ? "+" : ""}${v}`;
+    return chip;
+  }));
+  $("s-best").textContent = "";
 }
+
+function renderQuestions(questions) {
+  const picks = questions.map(() => null);
+  $("quiz").hidden = !questions.length;
+  $("b-answers").disabled = true;
+  $("b-answers").hidden = false;
+  $("q-list").replaceChildren(...questions.map((q, i) => {
+    const box = document.createElement("div");
+    box.className = "q";
+    const text = document.createElement("p");
+    text.textContent = `${i + 1}. ${q.q}`;
+    box.append(text);
+    q.options.forEach((option, j) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt";
+      b.textContent = option;
+      b.onclick = () => {
+        if (state.graded) return;
+        sfx.tap();
+        picks[i] = j;
+        box.querySelectorAll(".opt").forEach((o, k) => o.classList.toggle("picked", k === j));
+        $("b-answers").disabled = picks.includes(null);
+      };
+      box.append(b);
+    });
+    return box;
+  }));
+  $("b-answers").onclick = () => lockAnswers(picks);
+}
+
+async function lockAnswers(picks) {
+  $("b-answers").disabled = true;
+  const graded = await post(`/api/game/${state.game.id}/answers`, { answers: picks })
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!graded) {
+    $("b-answers").disabled = false;
+    pop("COULDN'T CHECK THOSE", "Try again in a moment", "move");
+    return;
+  }
+  state.graded = graded;
+  $("b-answers").hidden = true;
+  document.querySelectorAll("#q-list .q").forEach((box, i) => {
+    box.querySelectorAll(".opt").forEach((o, k) => {
+      o.classList.toggle("right", k === graded.answers[i]);
+      o.classList.toggle("wrong", k === picks[i] && !graded.correct[i]);
+    });
+  });
+  const right = graded.correct.filter(Boolean).length;
+  if (right === 3) sfx.good(); else if (!right) sfx.bad();
+  renderScore(graded);
+  $("s-best").textContent = personalBest(graded.score);
+  $("b-share").textContent = `Challenge a friend to beat ${graded.score}`;
+  renderRun();
+  renderBoard();
+}
+
+// Your best, per Dadi, and a streak for days you play today's Dadi.
+function personalBest(score) {
+  if (state.game.demo) return "Demo run: not counted.";
+  const r = state.report;
+  const notes = [];
+  const best = Number(safeGet("dadi_best") || 0);
+  const moodBest = Number(safeGet(`dadi_best_${r.mood_key}`) || 0);
+  if (score > best) {
+    safeSet("dadi_best", score);
+    notes.push(best ? `New personal best! (was ${best})` : "Your first score. Now beat it.");
+  } else {
+    notes.push(`Your best: ${best}.`);
+  }
+  if (score > moodBest) safeSet(`dadi_best_${r.mood_key}`, score);
+  else notes.push(`Best on ${r.mood}: ${moodBest}.`);
+  if (r.daily) {
+    const day = istDate();
+    const yesterday = istDate(Date.now() - 86400000);
+    const last = safeGet("dadi_daily_last");
+    const streak = last === day ? Number(safeGet("dadi_streak") || 1) : last === yesterday ? Number(safeGet("dadi_streak") || 0) + 1 : 1;
+    safeSet("dadi_daily_last", day);
+    safeSet("dadi_streak", streak);
+    if (streak > 1) notes.push(`${streak}-day streak.`);
+  }
+  return notes.join(" ");
+}
+
+function istDate(at = Date.now()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(at));
+}
+
+// The run, moment by moment. Their own words are shown only to them, and never kept.
+function renderRun() {
+  const replay = state.report.replay || { events: [] };
+  if (!replay.events.length) return;
+  $("run").hidden = false;
+  $("run-list").replaceChildren(...replay.events.map((e) => {
+    const li = document.createElement("li");
+    li.className = ["ev", e.susp >= 8 && "bad", e.trust >= 10 && "good", e.flag && "flag", e.turning && "turning"].filter(Boolean).join(" ");
+    const time = document.createElement("span");
+    time.className = "t";
+    time.textContent = e.at;
+    const name = document.createElement("b");
+    name.textContent = e.name + (e.digits ? ` · +${e.digits} digit${e.digits > 1 ? "s" : ""}` : "");
+    const deltas = document.createElement("em");
+    deltas.textContent = [e.trust && `trust ${e.trust > 0 ? "▲" : "▼"}${Math.abs(e.trust)}`, e.susp && `suspicion ${e.susp > 0 ? "▲" : "▼"}${Math.abs(e.susp)}`].filter(Boolean).join(" · ");
+    li.append(time, name, deltas);
+    if (e.said) {
+      const said = document.createElement("q");
+      said.textContent = e.said;
+      li.append(said);
+    }
+    return li;
+  }));
+  const turn = replay.turning;
+  $("run-turn").hidden = !turn;
+  if (turn) {
+    $("run-turn-title").textContent = `${turn.title} · ${replay.events[turn.index].at}`;
+    $("run-turn-why").textContent = turn.why;
+    $("run-turn-flag").textContent = turn.flag;
+  }
+}
+
+// Today's challenge has a board. Scores come from the server's own record of the call.
+function renderBoard() {
+  const r = state.report;
+  if (!r.daily) return;
+  $("board").hidden = false;
+  $("board-form").hidden = !r.ranked;
+  $("board-note").textContent = r.ranked
+    ? "Post your score to today's board."
+    : "This run can't be ranked: Dadi's brain was offline for too much of the call. Try again later.";
+  $("board-name").value = safeGet("dadi_nick") || "";
+  showBoard(state.daily ? state.daily.top : []);
+}
+
+function showBoard(top, mine) {
+  $("board-list").replaceChildren(...top.map((e, i) => {
+    const li = document.createElement("li");
+    if (mine && i + 1 === mine) li.className = "mine";
+    li.textContent = `${e.name} · ${e.score}${e.boss_off ? " · no Boss" : ""}`;
+    return li;
+  }));
+}
+
+$("board-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("board-name").value.trim();
+  if (name.length < 2) return;
+  const resp = await post(`/api/game/${state.game.id}/submit`, { name }).catch(() => null);
+  const data = resp ? await resp.json().catch(() => null) : null;
+  if (!resp || !resp.ok) {
+    $("board-note").textContent = (data && data.detail) || "Couldn't post that. Try again.";
+    return;
+  }
+  safeSet("dadi_nick", name);
+  $("board-form").hidden = true;
+  $("board-note").textContent = data.rank ? `You're #${data.rank} of ${data.of} today.` : `Posted. The top ${data.of} are below.`;
+  showBoard(data.top, data.rank);
+  sfx.good();
+});
+
+$("b-again-daily").addEventListener("click", () => {
+  unlockAudio();
+  hush();
+  sfx.tap();
+  state.mode = "daily";
+  show("brief");
+});
 
 $("b-again").addEventListener("click", () => {
   unlockAudio();
@@ -1339,14 +1566,22 @@ $("b-again").addEventListener("click", () => {
 
 const SITE = location.origin;
 
+function challengeLink() {
+  const r = state.report;
+  return `${SITE}/?c=${r.code}${state.graded ? `&s=${state.graded.score}` : ""}${state.lang === "en" ? "&lang=en" : ""}`;
+}
+
 function shareText() {
   const r = state.report;
+  if (state.graded && !state.game.demo) {
+    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.mood} on Scam Dadi. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
+  }
   const line = r.outcome === "reformed"
     ? "I tried to scam Kamla Dadi on Scam Dadi. Then I confessed. She asked if I'd eaten."
     : r.outcome === "cracked"
     ? `I got all 4 digits of Kamla Dadi's OTP on Scam Dadi. Then she got me.`
     : `I tried to scam ${r.mood} and got ${r.digits} of 4 OTP digits. Rank: ${r.rank}. She got me.`;
-  return `${line} Try it, and learn how the real scam works: ${SITE}`;
+  return `${line} Try it, and learn how the real scam works: ${state.game.demo ? SITE : challengeLink()}`;
 }
 
 // A result card drawn on canvas, ready for a post or a status.
@@ -1434,8 +1669,9 @@ async function drawCard() {
   const top = Object.entries(r.gags || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])[0];
   g.fillText(r.mood, 540, 1055);
   g.font = "700 40px 'Baloo 2'";
-  if (top) g.fillText(`${GAG_LABELS[top[0]].replace(/^\S+\s/, "")} × ${top[1]}`, 540, 1112);
-  outlined("CAN YOU BEAT HER?", 540, 1205, 64, "#ffffff", "#ff2e7e");
+  if (state.graded) g.fillText(`Nazar Score ${state.graded.score}/100 · ${state.graded.tier}`, 540, 1112);
+  else if (top) g.fillText(`${GAG_LABELS[top[0]].replace(/^\S+\s/, "")} × ${top[1]}`, 540, 1112);
+  outlined(state.graded ? "CAN YOU BEAT ME?" : "CAN YOU BEAT HER?", 540, 1205, 64, "#ffffff", "#ff2e7e");
   g.fillStyle = "#fff3d6";
   g.font = "700 36px 'Baloo 2'";
   g.fillText(`${SITE.replace(/^https?:\/\//, "")}  ·  Real scam? Call 1930`, 540, 1290);

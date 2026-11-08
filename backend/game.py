@@ -15,7 +15,9 @@ import logging
 import random
 import re
 import secrets
+import string
 import time
+from difflib import SequenceMatcher
 
 from . import llm
 
@@ -211,18 +213,41 @@ def choose_mood(hour: int) -> str:
     return "night"
 
 
+# A scenario code fixes the Dadi, her condition and every roll of her counter-moves,
+# so a friend's challenge or the daily Dadi plays the same for everyone: "32KQX" is
+# mood 3, twist 2, then letters for the rest. Her live words still vary.
+MOOD_KEYS = list(MOODS)
+TWIST_KEYS = list(TWISTS)
+CODE_RE = re.compile(r"[0-4][0-4][A-Z]{3}")
+
+
+def new_code(mood_key: str, rng: random.Random | None = None) -> str:
+    pick = rng or secrets.SystemRandom()
+    letters = "".join(pick.choice(string.ascii_uppercase) for _ in range(3))
+    return f"{MOOD_KEYS.index(mood_key)}{pick.randrange(len(TWIST_KEYS))}{letters}"
+
+
+def daily_code(date: str) -> str:
+    rng = random.Random(f"daily-{date}")
+    return new_code(rng.choice(MOOD_KEYS), rng)
+
+
 class Game:
     """One call. The OTP and the scoring stay on the server."""
 
-    def __init__(self, hour: int, returning_name: str | None = None, rng: random.Random | None = None, demo: bool = False, lang: str = "hi"):
+    def __init__(self, hour: int, returning_name: str | None = None, rng: random.Random | None = None, demo: bool = False,
+                 lang: str = "hi", code: str | None = None, boss_off: bool = False, daily: bool = False):
         self.demo = demo
         self.lang = lang if lang in SYSTEM else "hi"
-        self.rng = rng or random.Random(int(OTP) if demo else secrets.randbits(64))
+        self.code = code if code and CODE_RE.fullmatch(code) else new_code(choose_mood(hour))
+        self.daily = daily and not demo
+        self.boss_off = boss_off and not demo
+        self.rng = rng or random.Random(int(OTP) if demo else self.code)
         self.id = secrets.token_urlsafe(12)
         self.started = time.time()
-        self.mood_key = choose_mood(hour)
+        self.mood_key = choose_mood(hour) if demo else MOOD_KEYS[int(self.code[0])]
         self.mood = MOODS[self.mood_key]
-        self.twist_key = "generous" if demo else self.rng.choice(list(TWISTS))
+        self.twist_key = "generous" if demo else TWIST_KEYS[int(self.code[1])]
         self.twist = TWISTS[self.twist_key]
         self.otp = OTP
         self.returning_name = returning_name
@@ -246,6 +271,15 @@ class Game:
         self.boss_said_bye = False
         self.own_line: str | None = None
         self.fallbacks_left: dict[str, list[tuple[str, str, str]]] = {}
+        self.timeline: list[dict] = []   # every move and what it did, for the replay
+        self.flags: list[str] = []       # moves a real target should recognise, like blocking her check
+        self.offline_turns = 0           # turns judged without the LLM; too many and the run isn't ranked
+        self.seconds_left_at_end = 0.0
+        self.questions: list[dict] | None = None
+        self.knowledge: int | None = None
+
+    def log(self, kind: str, **event) -> None:
+        self.timeline.append({"at": round(time.time() - self.started), "kind": kind, **event})
 
     def next_fallback(self, tactic: str) -> tuple[str, str, str]:
         """A recorded line for this kind of move, without repeats until they've all played."""
@@ -276,6 +310,10 @@ class Game:
 
     def boss_hint(self) -> dict:
         """What Boss whispers next: the next real tactic, or a warning if it's going wrong."""
+        if self.boss_off:
+            text = "..." if self.boss_said_bye else self.t("Boss band hai. Ab sab tujh pe hai.", "Boss is off. It's all on you.")
+            self.boss_said_bye = True
+            return {"tactic": None, "label": "", "text": text, "gone": True}
         if self.boss_gone:
             text = "..." if self.boss_said_bye else self.t("Police aa gayi yahan. Main ja raha hoon. Ab tu akela hai.", "Police are here. I'm leaving. You're on your own now.")
             self.boss_said_bye = True
@@ -304,13 +342,16 @@ class Game:
 
     # ---- rules ----
 
-    def score_move(self, tactic: str, quality: int, contradiction: bool) -> dict:
+    def score_move(self, tactic: str, quality: int, contradiction: bool, echo: bool = False) -> dict:
         """Apply a move. Variety, order and consistency all matter, as in a real scam."""
         info = {"tactic": tactic, "quality": quality, "notes": []}
         repeats = self.tactics.get(tactic, 0)
         gain, heat = 0.0, 4.0  # every turn she gets a little more wary
 
-        if tactic in TACTICS and tactic != "ask":
+        if echo:  # the same line again, however it's labelled, is the same trick again
+            heat += 12
+            info["notes"].append("repeat")
+        elif tactic in TACTICS and tactic != "ask":
             weight = self.mood["weights"][tactic]
             gain = {0: 0, 1: 6, 2: 14, 3: 24}[quality] * weight * self.rng.uniform(0.8, 1.2)
             if repeats:  # the same trick twice is how she works it out
@@ -346,10 +387,10 @@ class Game:
         # Trust softens her, so a well-played call cools down a little.
         if quality == 3 and not contradiction and not repeats:
             heat -= 4
-        if self.demo and not repeats and "too_soon" not in info["notes"] and tactic in DEMO_GAINS:
+        if self.demo and not repeats and not echo and "too_soon" not in info["notes"] and tactic in DEMO_GAINS:
             gain, heat = float(DEMO_GAINS[tactic]), 3.0
 
-        if tactic in TACTICS and "too_soon" not in info["notes"]:  # a failed ask doesn't count as the ask
+        if tactic in TACTICS and "too_soon" not in info["notes"] and not echo:  # a failed ask doesn't count as the ask
             self.tactics[tactic] = repeats + 1
         # A suspicious Dadi stops believing what she was told earlier.
         if self.suspicion >= 60:
@@ -392,12 +433,24 @@ class Game:
         return effect
 
     def counter_result(self, effect: str, passed: bool) -> dict:
-        """The player met or failed Dadi's counter-move (shout, stop the hang-up...)."""
-        if passed:
+        """The player met or failed Dadi's counter-move (shout, stop the hang-up...).
+
+        Her call to the police station is different. Stopping it keeps her on the line,
+        but it's the clearest red flag there is, so it costs score. Letting her try costs
+        time and some suspicion instead. Both are real choices.
+        """
+        before_s, before_t = self.suspicion, self.trust
+        if effect == "callback" and passed:
+            self.trust = min(100.0, self.trust + 4)
+            self.flags.append("blocked_check")
+        elif effect == "callback":
+            self.suspicion = min(100.0, self.suspicion + 12)
+        elif passed:
             self.trust = min(100.0, self.trust + 4)
         else:
             self.suspicion = min(100.0, self.suspicion + 16)
             self.trust = max(0.0, self.trust - 6)
+        self.log("counter", effect=effect, passed=passed, susp=round(self.suspicion - before_s), trust=round(self.trust - before_t))
         return {"suspicion": round(self.suspicion), "trust": round(self.trust), "outcome": self.finish_state(1)}
 
     def cut_off(self, partial: str) -> dict | None:
@@ -405,6 +458,7 @@ class Game:
         if self.outcome or self.story_built or not re.search(OTP_WORD, partial, re.I):
             return None
         partial = mask_numbers(partial)
+        self.log("cutoff", susp=round(min(100.0, self.suspicion + 22) - self.suspicion), said=partial.strip()[:90])
         self.suspicion = min(100.0, self.suspicion + 22)
         self.last_notes = ["too_soon"]
         self.history.append(("caller", partial.strip()[:400]))
@@ -413,6 +467,8 @@ class Game:
 
     def finish_state(self, seconds_left: float) -> str | None:
         if self.digits >= 4:
+            if self.outcome != "cracked":
+                self.seconds_left_at_end = min(float(GAME_SECONDS), max(0.0, seconds_left))
             self.outcome = "cracked"
         elif self.suspicion >= 100:
             self.outcome = "busted"
@@ -472,9 +528,10 @@ class Game:
             confessed = data.get("confessed") is True
         except llm.LLMError as e:
             log.warning("Dadi's reply fell back to a recorded line: %s", str(e)[:200])
+            self.offline_turns += 1
             # An outage on our side shouldn't cost the player, so the move still counts.
-            # Nobody can judge it now, so only a bare demand scores as lazy.
-            quality = 1 if len(said.split()) < 4 else 2
+            # Nobody can judge it now, so a bare demand, or a pile of scam words, scores as lazy.
+            quality = 1 if len(said.split()) < 4 or len(tactics_in(said)) >= 4 else 2
             reply, tactic, contradiction, name, gags = None, "none", False, None, []
 
         # The secret ending: stop scamming, and the game stops too.
@@ -502,11 +559,15 @@ class Game:
             too_soon = tactic == "ask" and not self.story_built
             canned, reply, reply_en = self.next_fallback("ask_soon" if too_soon else tactic)
 
-        move = self.score_move(tactic, quality, contradiction)
+        echo = self.is_echo(said)
+        before_s, before_t = self.suspicion, self.trust
+        move = self.score_move(tactic, quality, contradiction, echo)
         if trapping and not contradiction:
             self.trust = min(100.0, self.trust + 6)
             move["notes"].append("story_held")
         digits = self.award_digits()
+        self.log("move", tactic=tactic, notes=list(move["notes"]), said=said[:90], digits=len(digits),
+                 susp=round(self.suspicion - before_s), trust=round(self.trust - before_t))
         if isinstance(name, str) and name.strip():
             self.claimed_name = name.strip()[:40]
         if reply and "pappu" not in gags and re.search(r"pappu|पप्पू", reply, re.I):
@@ -520,7 +581,7 @@ class Game:
         outcome = self.finish_state(seconds_left)
         # Halfway through, the help can vanish. Now it's what you've learned that counts.
         boss_gone = False
-        if not self.demo and not outcome and not self.boss_gone and self.digits >= 2 and self.rng.random() < 0.5:
+        if not self.demo and not self.boss_off and not outcome and not self.boss_gone and self.digits >= 2 and self.rng.random() < 0.5:
             self.boss_gone = boss_gone = True
         return {
             "reply": reply, "reply_en": reply_en, "canned": canned, "move": move, "digits": digits,
@@ -529,6 +590,12 @@ class Game:
             "boss": self.boss_hint(), "boss_gone": boss_gone, "gags": gags, "outcome": outcome,
             "story_built": self.story_built,
         }
+
+    def is_echo(self, said: str) -> bool:
+        """Saying (nearly) the same line again. It's the cheapest exploit, so it never pays."""
+        line = _plain(said)
+        return len(line) > 8 and any(
+            SequenceMatcher(None, line, _plain(text)).ratio() >= 0.8 for who, text in self.history if who == "caller")
 
     def report(self) -> dict:
         used = [t for t in PLAYBOOK if self.tactics.get(t) or (t == "ask" and self.asked_too_soon)]
@@ -543,6 +610,10 @@ class Game:
             "lessons": [{"tactic": t, "label": TACTICS[t]["label"], "real": TACTICS[t]["real"], "defence": TACTICS[t]["defence"]} for t in used],
             "missed": [TACTICS[t]["label"] for t in PLAYBOOK if t not in used],
             "weak": self.mood["weak"],
+            "code": self.code, "daily": self.daily, "boss_off": self.boss_off, "mood_key": self.mood_key,
+            "replay": scoring.replay(self), "call_score": scoring.call_score(self),
+            "questions": [{"q": q["q"], "options": q["options"]} for q in scoring.questions(self)],
+            "ranked": scoring.ranked(self),
         }
 
 
@@ -633,16 +704,24 @@ FALLBACK_PATTERNS = [
 ]
 
 
+def tactics_in(said: str) -> list[str]:
+    return [tactic for tactic, pattern in FALLBACK_PATTERNS if re.search(pattern, said, re.I)]
+
+
 def detect_tactic(said: str, used: dict[str, int] | None = None) -> str:
     """Used when the model is unavailable, so a call never stalls.
 
     One detailed sentence can carry several tactics, so credit one they haven't used yet.
     """
-    found = [tactic for tactic, pattern in FALLBACK_PATTERNS if re.search(pattern, said, re.I)]
+    found = tactics_in(said)
     if "ask" in found:
         return "ask"
     fresh = [tactic for tactic in found if not (used or {}).get(tactic)]
     return (fresh or found or ["none"])[0]
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", text.lower()).split())
 
 
 def mask_numbers(text: str) -> str:
@@ -679,3 +758,6 @@ def clean_reply(reply, lang: str = "hi") -> str | None:
             kept += sentence
         reply = kept.strip() or reply
     return reply
+
+
+from . import scoring  # noqa: E402  (scoring reads this module's tables)

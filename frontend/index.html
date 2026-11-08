@@ -75,7 +75,9 @@
           <button type="button" data-lang="hi" aria-pressed="true" lang="hi">हिंदी</button>
           <button type="button" data-lang="en" aria-pressed="false">English</button>
         </div>
+        <p id="dare" class="dare" hidden></p>
         <button id="b-start" class="chunky pink">Start the scam</button>
+        <button id="b-daily" class="daily-btn" hidden>📅 <span>Today's challenge:</span> <b id="daily-name"></b></button>
         <p class="fine">A comedy game. All fictional. <b>Never say a real OTP, PIN or account number.</b></p>
       </div>
     </section>
@@ -92,6 +94,10 @@
           <li><span class="key">👁️</span><div><b>Watch her suspicion.</b> It hits 100 and you're finished.</div></li>
           <li><span class="key">🎭</span><div><b>She's different every time.</b> The hour changes her. So does her luck.</div></li>
         </ul>
+        <label class="boss-off">
+          <input type="checkbox" id="boss-off">
+          <span><b>Play without Boss.</b> No hints. Read her yourself. Worth up to 10 more points.</span>
+        </label>
         <div class="clearance">
           <p><b>Clearance question:</b> Can police arrest someone over a video call?</p>
           <div class="yn">
@@ -108,9 +114,8 @@
     <section id="s-ring" class="screen" hidden>
       <div class="ring-card">
         <div class="ring-dadi" data-dadi></div>
-        <p class="ring-label">Calling…</p>
-        <h2>Kamla Dadi</h2>
-        <p id="ring-mood" class="ring-mood"></p>
+        <p class="ring-label">Calling Kamla Dadi…</p>
+        <h2 id="ring-mood"></h2>
         <p id="ring-tag" class="ring-tag"></p>
       </div>
     </section>
@@ -147,7 +152,7 @@
         <div id="away" class="away" hidden>
           <b>ON HOLD</b>
           <span id="away-count">6</span>
-          <small>Dadi has gone to check the cooker</small>
+          <small id="away-why">Dadi has gone to check the cooker</small>
         </div>
         <div id="pops" class="pops" aria-live="polite"></div>
       </div>
@@ -225,7 +230,43 @@
 
         <div class="gags" id="r-gags"></div>
 
-        <button id="b-share" class="chunky yellow wide">Share my result</button>
+        <div class="panel score-panel">
+          <small class="panel-kicker">NAZAR SCORE</small>
+          <div class="score-row">
+            <div class="score-num"><b id="s-num">?</b><span>/100</span></div>
+            <div class="score-tier"><b id="s-tier">Answer 3 questions</b><span id="s-tierline">They're about your own call. Then you get your score.</span></div>
+          </div>
+          <div id="s-parts" class="score-parts"></div>
+          <p id="s-best" class="score-best"></p>
+        </div>
+
+        <div class="panel quiz-panel" id="quiz">
+          <small class="panel-kicker">SPOT THE RED FLAGS · 10 POINTS EACH</small>
+          <div id="q-list"></div>
+          <button id="b-answers" class="chunky teal wide" disabled>Lock in my answers</button>
+        </div>
+
+        <div class="panel board-panel" id="board" hidden>
+          <small class="panel-kicker">TODAY'S CHALLENGE · LEADERBOARD</small>
+          <p id="board-note" class="board-note"></p>
+          <form id="board-form" class="board-form" hidden>
+            <input id="board-name" maxlength="16" placeholder="Your nickname" autocomplete="off">
+            <button class="chunky mini yellow">Post score</button>
+          </form>
+          <ol id="board-list" class="board-list"></ol>
+        </div>
+
+        <div class="panel run-panel" id="run" hidden>
+          <small class="panel-kicker">YOUR RUN</small>
+          <ol id="run-list" class="run-list"></ol>
+          <div id="run-turn" class="run-turn" hidden>
+            <b id="run-turn-title"></b>
+            <p><span>WHY</span> <i id="run-turn-why"></i></p>
+            <p><span>REAL-WORLD RED FLAG</span> <i id="run-turn-flag"></i></p>
+          </div>
+        </div>
+
+        <button id="b-share" class="chunky yellow wide">Challenge a friend</button>
 
         <div class="panel lesson-panel">
           <div class="lp-top">
@@ -247,15 +288,6 @@
           </div>
         </div>
 
-        <div class="panel check" id="r-check">
-          <p><b>Last check:</b> Can police arrest someone over a video call?</p>
-          <div class="yn">
-            <button class="chunky mini teal" data-after="true">Yes</button>
-            <button class="chunky mini teal" data-after="false">No</button>
-          </div>
-          <p id="r-check-answer" class="check-answer" hidden></p>
-        </div>
-
         <div class="panel parents">
           <h3>Now call yours.</h3>
           <p>Your parents won't play this game. So send them Dadi: a 20-second voice note in Hindi that tells them what to do.</p>
@@ -268,6 +300,7 @@
           <p id="r-tip"></p>
           <p class="replay-next" id="r-next"></p>
           <button id="b-again" class="chunky pink wide">Call her again</button>
+          <button id="b-again-daily" class="linkish" hidden>Play today's challenge instead</button>
         </div>
 
         <p class="credit">Prisma heard you. Timbre was Dadi. Built on <b>Gnani AI</b>.<br>A comedy game. All characters are fictional.</p>
