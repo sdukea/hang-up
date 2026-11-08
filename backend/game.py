@@ -20,14 +20,14 @@ import string
 import time
 from difflib import SequenceMatcher
 
-from . import character, llm
+from . import character, llm, scenario
 
 log = logging.getLogger("dadi.game")
 
 GAME_SECONDS = 200
 OTP = "1930"
 DIGIT_THRESHOLDS = [12, 35, 58, 80]
-STORY_MOVES = 3  # different tactics she needs to hear before an OTP ask lands
+STORY_MOVES = 3  # different tactics she needs to hear before an OTP ask lands (a scenario can change it)
 OTP_WORD = r"\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]"
 CONFESSION = (r"scammer h(oo|u)n|स्कैमर हूँ|fake h(oo|u)n|officer nah[ie]+\s*h(oo|u)n|(ऑफिसर|अफ़सर|अफसर) नहीं हूँ"
               r"|\bi('?m| am) (a |the )?scammer|\bi('?m| am) not (an? |really )?(real )?officer")
@@ -198,7 +198,13 @@ class Game:
         self.id = secrets.token_urlsafe(12)
         self.started = time.time()
         # The demo meets the same person every time, built by the same machinery.
-        self.character = character.preset(**DEMO_CHARACTER) if demo else character.generate(self.code)
+        base = character.preset(**DEMO_CHARACTER) if demo else character.generate(self.code)
+        # What's going on in her life today: picked to fit her, same code same scenario.
+        key = scenario.DEMO_SCENARIO if demo else scenario.pick(base, self.code)
+        self.character = scenario.apply(base, key)
+        self.scene = scenario.Scene(key, demo)
+        self.clock_end: float | None = None  # a scenario can shorten the call
+        self.event_boss: tuple[str, str] | None = None
         self.mood_key = self.character["situation"]  # names her recorded greetings and busted line
         self.otp = OTP
         self.returning_name = returning_name
@@ -248,7 +254,7 @@ class Game:
 
     @property
     def story_built(self) -> bool:
-        return sum(1 for t in self.tactics if t != "ask") >= STORY_MOVES
+        return sum(1 for t in self.tactics if t != "ask") >= self.character.get("story", STORY_MOVES)
 
     # ---- hints ----
 
@@ -288,6 +294,8 @@ class Game:
             hint["text"] = self.t("Shak kar rahi hai! Dheere. Pyaar se baat kar warna 1930 ghuma degi.",
                                   "She's suspicious! Slow down. Talk sweetly or she'll dial 1930.")
             hint["warn"] = True
+        elif self.event_boss:  # Boss reacts to what just happened, never to what's coming
+            hint["text"] = self.t(*self.event_boss)
         return hint
 
     def intel(self) -> str:
@@ -295,7 +303,7 @@ class Game:
 
     # ---- rules ----
 
-    def score_move(self, tactic: str, quality: int, contradiction: bool, echo: bool = False) -> dict:
+    def score_move(self, tactic: str, quality: int, contradiction: bool, echo: bool = False, hook: float = 1.0) -> dict:
         """Apply a move. Variety, order and consistency all matter, as in a real scam."""
         info = {"tactic": tactic, "quality": quality, "notes": []}
         repeats = self.tactics.get(tactic, 0)
@@ -307,7 +315,9 @@ class Game:
             info["notes"].append("repeat")
         elif tactic in TACTICS and tactic != "ask":
             weight = c["weights"][tactic]
-            gain = {0: 0, 1: 6, 2: 14, 3: 24}[quality] * weight * self.rng.uniform(0.8, 1.2)
+            gain = {0: 0, 1: 6, 2: 14, 3: 24}[quality] * weight * hook * self.rng.uniform(0.8, 1.2)
+            if hook > 1 and quality:
+                info["notes"].append("hooked")  # it touched what's on her mind today
             if quality:
                 heat += c["heat"][tactic]  # some Dadis bristle at particular pressure
                 if tactic in c["dislikes"] and not repeats and not self.demo:  # the wrong approach for her doesn't just fail, it costs
@@ -326,6 +336,7 @@ class Game:
                 self.asked_too_soon = True
             else:
                 gain = {0: 0, 1: 10, 2: 22, 3: 32}[quality] * c["ask"] * self.rng.uniform(0.8, 1.2)
+                heat += c.get("ask_heat", 0)
                 if repeats:  # asking again and again is begging, not persuading
                     gain *= 0.4 ** repeats
                     heat += 10 * repeats
@@ -463,7 +474,7 @@ class Game:
         if self.turns % (2 if self.mood_key == "chai" else 3) != 1:
             who += " Don't mention your surroundings in this reply unless the caller gives you a reason."
         return TURN_FORMAT.format(
-            reply_keys=REPLY_KEYS[self.lang], who=who, trap=trap,
+            reply_keys=REPLY_KEYS[self.lang], who=who + "\n" + self.scene.prompt(self), trap=trap,
             recent=" | ".join(text for who, text in self.history[-6:] if who == "dadi") or "none yet",
             returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
             counter=COUNTER_PROMPTS.get(counter, "none, just be yourself"), history=history, said=said,
@@ -474,11 +485,16 @@ class Game:
         self.turns += 1
         said = mask_numbers(said.strip()[:400])
         trapping, self.trapping = self.trapping, False
-        effect = self.pick_effect()
+        # Her life gets a say first: a scenario event, if one is due, takes this turn's slot.
+        self.event_boss = None
+        event = self.scene.next_event(self, said, tuple(tactics_in(said)))
+        effect = event.get("action") if event else self.pick_effect()
+        if event:
+            self.next_effect_turn += 1
         reply_en, confessed = None, False
         try:
             system = SYSTEM[self.lang].replace("{words}", str(self.character["words"]))
-            data = await llm.complete_live(system, self.build_prompt(said, effect, trapping), 0.9, deadline=6.5)
+            data = await llm.complete_live(system, self.build_prompt(said, None if event else effect, trapping), 0.9, deadline=6.5)
             reply = clean_reply(data.get("reply"), self.lang, self.character["words"] + 6)
             tactic = data.get("tactic") if isinstance(data.get("tactic"), str) and data["tactic"] in TACTICS else "none"
             quality = data.get("quality") if type(data.get("quality")) is int and 0 <= data["quality"] <= 3 else 1
@@ -522,11 +538,21 @@ class Game:
 
         echo = self.is_echo(said)
         before_s, before_t = self.suspicion, self.trust
-        move = self.score_move(tactic, quality, contradiction, echo)
+        move = self.score_move(tactic, quality, contradiction, echo, self.scene.hook(said, tactic))
+        long_line = self.scene.spec.get("long_line")
+        if long_line and len(said.split()) > long_line:  # her mind is elsewhere today; rambling loses her
+            self.suspicion = min(100.0, self.suspicion + 4)
+            move["notes"].append("rambled")
         if trapping and not contradiction:
             self.trust = min(100.0, self.trust + 6)
             move["notes"].append("story_held")
         digits = self.award_digits()
+        happened = self.scene.settle(self)
+        if happened.get("clock"):
+            end = time.time() + happened["clock"]
+            self.clock_end = min(self.clock_end or end, end)
+        if event and event.get("boss"):
+            self.event_boss = event["boss"]
         self.log("move", tactic=tactic, notes=list(move["notes"]), said=said[:90], digits=len(digits),
                  susp=round(self.suspicion - before_s), trust=round(self.trust - before_t))
         if isinstance(name, str) and name.strip():
@@ -547,6 +573,7 @@ class Game:
         return {
             "reply": reply, "reply_en": reply_en, "canned": canned, "move": move, "digits": digits,
             "effect": effect if not outcome else None,
+            "event": ({k: happened[k] for k in ("title", "note", "clip", "why", "clock")} if happened and not outcome else None),
             "suspicion": round(self.suspicion), "trust": round(self.trust),
             "boss": self.boss_hint(), "boss_gone": boss_gone, "gags": gags, "outcome": outcome,
             "story_built": self.story_built,
@@ -565,7 +592,8 @@ class Game:
             "outcome": self.outcome or "hung_up", "digits": self.digits,
             "otp": self.otp if self.digits >= 4 else None,
             "rank": rank[1], "rank_line": rank[2],
-            "name": character.display_name(self.character, "en"), "who": character.reveal(self.character), "turns": self.turns,
+            "name": character.display_name(self.character, "en"), "turns": self.turns,
+            "who": {**character.reveal(self.character), "scenario": self.scene.reveal()},
             "gags": self.gags, "claimed_name": self.claimed_name,
             "own_line": bool(self.own_line),
             "lessons": [{"tactic": t, "label": TACTICS[t]["label"], "real": TACTICS[t]["real"], "defence": TACTICS[t]["defence"]} for t in used],

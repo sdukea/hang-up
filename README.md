@@ -77,7 +77,9 @@ Oh, *interesting*. Say this in the real game and see what happens.
 
 You never know. Every call, a different grandmother answers, built from her situation (mid-puja, cooking, half out of the door, hunting for her glasses), her temperament (chatty, sceptical, blunt, anxious, proud...), who else is around, today's mood, and one or two hidden traits: perfect recall, a habit of checking things herself, digging in under pressure.
 
-Nothing tells you which. You work her out from how she talks, and what lands or backfires changes from Dadi to Dadi. After the call, **Who picked up** reveals who she really was and the clue behind each trait, so next time you spot it sooner.
+And something is always going on in her day: a parcel she's waiting for, a strange SMS from this morning, a son on his way home, a warning from her bank, a missing pension, a dying phone battery, a friend ringing on the other line. Each one changes the puzzle: what's on her mind lands harder, the doorbell eats your clock, her son walks in unless you've kept her quiet, a warned Dadi checks your claims.
+
+Nothing tells you any of this. You work her out from how she talks, and what lands or backfires changes from call to call. After the call, **Who picked up** reveals who she really was and the clue behind each trait, so next time you spot it sooner.
 
 ## The playbook
 

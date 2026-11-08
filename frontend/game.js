@@ -620,6 +620,7 @@ async function runCall() {
       code: state.mode === "challenge" ? state.code : state.mode === "seed" ? challengeCode("seed") : null,
       boss_off: $("boss-off").checked,
       returning_name: returning,
+      recent: recentScenarios(),
       quiz: state.quizBefore,
     }, 30000);
     if (!resp.ok) {
@@ -899,7 +900,7 @@ async function playTurn(text) {
 
   // Ordinary chatter can be talked over. A digit, an ending or her counter-move
   // can't, or the player would never see what they just won or triggered.
-  const mustHear = Boolean(result.digits.length || result.outcome || result.effect || result.boss_gone);
+  const mustHear = Boolean(result.digits.length || result.outcome || result.effect || result.event || result.boss_gone);
   const canPress = () => {
     state.busy = mustHear;
     updateTalk();
@@ -926,7 +927,8 @@ async function playTurn(text) {
     await endCall(result.outcome);
     return;
   }
-  if (result.effect) await runCounter(result.effect);
+  if (result.event) await showEvent(result.event, result.effect);
+  if (result.effect) await runCounter(result.effect, result.event);
   state.busy = false;
   updateTalk();
   state.idleAt = Date.now() + 15000;
@@ -1024,15 +1026,26 @@ function applyCounter(effect, passed) {
     .catch((err) => console.warn(err));
 }
 
-async function runCounter(effect) {
+// Something in her day just happened. The cause was always on screen or in her words.
+async function showEvent(event, effect) {
+  pop(event.title, event.note, "move");
+  sfx.warn();
+  if (event.clock) {
+    state.secondsLeft = Math.min(state.secondsLeft, event.clock);
+    renderTimer();
+  }
+  if (event.clip && effect !== "hold") await say(clip(event.clip));
+}
+
+async function runCounter(effect, event = null) {
   const note = COUNTER_NOTES[effect];
   if (note) {
     pop(note[0], note[1], "move");
     if (!state.game.boss_off) setBossText(note[state.lang === "en" ? 3 : 2], "· She's fighting back");
   }
   if (effect === "hold") {
-    await say(clip("hold"));
-    await holdPhase();
+    await say(clip((event && event.clip) || "hold"));
+    await holdPhase(undefined, (event && event.why) || undefined);
   } else if (effect === "shout") {
     await say(clip("shout"));
     state.shoutPending = true;
@@ -1310,6 +1323,7 @@ function showReport() {
   $("s-report").scrollTop = 0;
   $("r-mood").textContent = r.name;
   renderWho(r.who);
+  rememberScenario(r.who && r.who.scenario && r.who.scenario.id);
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
   $("r-crack").textContent = state.game.demo ? "" : !r.crack_rate ? "Nobody has got all four digits yet." : `Only ${r.crack_rate}% of callers ever get all four digits.`;
@@ -1377,7 +1391,10 @@ function renderWho(who) {
   if (!who) return;
   $("who-name").textContent = `${who.name}, ${who.age}`;
   $("who-scene").textContent = who.scene;
-  const items = [{ reveal: who.temperament.label, tell: who.temperament.tell }, ...who.traits];
+  const items = [
+    ...(who.scenario ? [{ reveal: who.scenario.reveal, tell: who.scenario.tell }] : []),
+    { reveal: who.temperament.label, tell: who.temperament.tell }, ...who.traits,
+  ];
   $("who-list").replaceChildren(...items.map((item) => {
     const li = document.createElement("li");
     const b = document.createElement("b");
@@ -1388,6 +1405,16 @@ function renderWho(who) {
     return li;
   }));
   $("who-play").textContent = `What worked best on her: ${TACTIC_NAMES[who.works]}. What worked worst: ${TACTIC_NAMES[who.fails]}.`;
+}
+
+// The last few situations this browser saw, so free play doesn't repeat them back to back.
+function recentScenarios() {
+  try { return JSON.parse(safeGet("dadi_recent") || "[]").slice(0, 4); } catch (err) { return []; }
+}
+
+function rememberScenario(id) {
+  if (!id || state.game.demo) return;
+  safeSet("dadi_recent", JSON.stringify([id, ...recentScenarios().filter((x) => x !== id)].slice(0, 4)));
 }
 
 // Development only: the server sends this when it runs with DEBUG=1.

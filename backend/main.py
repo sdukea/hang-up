@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import character, config, game, scoring, tts
+from . import character, config, game, scenario, scoring, tts
 from .storage import store
 from .stt import PrismaStream
 
@@ -104,7 +104,10 @@ def _get_game(game_id: str) -> game.Game:
 
 def _seconds_left(g: game.Game) -> float:
     # A little grace for the phone ringing before the player's clock starts.
-    return game.GAME_SECONDS + 15 - (time.time() - g.started)
+    left = game.GAME_SECONDS + 15 - (time.time() - g.started)
+    if g.clock_end:  # a scenario cut the call short (her battery is dying)
+        left = min(left, g.clock_end + 5 - time.time())
+    return left
 
 
 def _purge():
@@ -148,6 +151,7 @@ class Start(BaseModel):
     code: str | None = Field(default=None, max_length=8)   # a friend's challenge
     daily: bool = False
     boss_off: bool = False
+    recent: list[str] = Field(default_factory=list, max_length=6)  # scenarios this browser met lately
 
 
 def _audio(g: game.Game, clip: str) -> str:
@@ -167,6 +171,11 @@ async def start_game(body: Start, request: Request):
     hits.append(now)
 
     code = game.daily_code(today()) if body.daily else body.code
+    if not code and not body.demo:  # free play: don't hand them the same situation twice in a row
+        for _ in range(12):
+            code = game.new_code(body.hour)
+            if scenario.pick(character.generate(code), code) not in body.recent:
+                break
     # A returning caller makes her warier, so shared scenarios ignore it to stay fair.
     returning = None if body.demo or body.daily or body.code else body.returning_name
     g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily)

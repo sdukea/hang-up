@@ -47,7 +47,7 @@ SITUATIONS = {
     "puja": {
         "label": "in the middle of her puja", "bands": {0, 3},
         "voice": "She is in the middle of her puja: bell, aarti, bits of prayer. She blesses the caller and won't be hurried.",
-        "mods": {"urgency": 0.6, "rapport": 1.15, "authority": 1.1}, "social": ["alone", "grandson", "son_expected"],
+        "mods": {"urgency": 0.6, "rapport": 1.15, "authority": 1.1}, "social": ["alone", "grandson"],
         "moods": ["content", "cheerful", "worried"], "effects": [],
     },
     "serial": {
@@ -77,13 +77,13 @@ SITUATIONS = {
     "kitchen": {
         "label": "cooking", "bands": {0, 1, 3},
         "voice": "She is cooking, with the pressure cooker going, and keeps breaking off to stir something or check the gas.",
-        "mods": {"urgency": 1.2, "secrecy": 1.1, "rapport": 0.9}, "social": ["alone", "grandson", "helper", "son_expected"],
+        "mods": {"urgency": 1.2, "secrecy": 1.1, "rapport": 0.9}, "social": ["alone", "grandson", "helper"],
         "moods": ["content", "irritable", "cheerful"], "effects": ["hold"],
     },
     "leaving": {
         "label": "about to go out", "bands": {0, 1, 2},
         "voice": "She was just leaving for the market and the auto is waiting outside. She is half out of the door and keeps saying so.",
-        "mods": {"urgency": 1.35, "authority": 1.1, "rapport": 0.8}, "social": ["alone", "helper", "son_expected"],
+        "mods": {"urgency": 1.35, "authority": 1.1, "rapport": 0.8}, "social": ["alone", "helper"],
         "moods": ["irritable", "content", "worried"], "effects": [], "pace": 1,
     },
     "searching": {
@@ -185,11 +185,6 @@ TRAITS = {
         "calm": 4,
         "reveal": "She calmed down when you slowed down.", "tell": "Her tone eased when you stopped pushing.",
     },
-    "warned": {
-        "cue": "A neighbour warned you about phone calls just yesterday. Mention it.",
-        "start": 15,
-        "reveal": "A neighbour had warned her about calls like this.", "tell": "She mentioned a warning about phone calls.",
-    },
 }
 
 SOCIAL = {
@@ -201,8 +196,6 @@ SOCIAL = {
                   "mods": {"secrecy": 0.85}, "reveal": "with a neighbour sitting beside her"},
     "helper": {"voice": "Her household helper is working nearby and sometimes chips in.", "mods": {"secrecy": 0.9},
                "reveal": "with her helper working nearby"},
-    "son_expected": {"voice": "Her son is due home any minute, and she mentions it.", "effects": ["callback"],
-                     "mods": {"secrecy": 0.85, "urgency": 1.25}, "reveal": "expecting her son home any minute"},
 }
 
 MOODS = {
