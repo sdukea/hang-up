@@ -90,6 +90,7 @@
 
     <!-- BRIEFING -->
     <section id="s-brief" class="screen" hidden>
+      <button type="button" class="back" data-back aria-label="Back to the start">‹ Back</button>
       <div class="casefile">
         <div class="stamp">TOP SECRET</div>
         <h2>Your mission</h2>
@@ -97,8 +98,8 @@
         <ul class="howto">
           <li><span class="key">🎙️</span><div><b>Hold and talk.</b> Really talk, out loud. <span id="speak-in">Hindi or Hinglish.</span></div></li>
           <li><span class="key">📻</span><div><b>Listen to Boss.</b> He knows what real scammers do.</div></li>
-          <li><span class="key">👁️</span><div><b>Watch her suspicion.</b> It hits 100 and you're finished.</div></li>
-          <li><span class="key">🎭</span><div><b>She's different every time.</b> The hour changes her. So does her luck.</div></li>
+          <li><span class="key">👁️</span><div><b>Watch her mood.</b> If she's about to hang up, back off.</div></li>
+          <li><span class="key">🎭</span><div><b>She's different every time.</b> Someone new picks up, in a new situation.</div></li>
         </ul>
         <label class="boss-off">
           <input type="checkbox" id="boss-off">
@@ -129,9 +130,9 @@
     <!-- THE CALL -->
     <section id="s-game" class="screen" hidden>
       <header class="hud">
-        <button id="b-hang" class="hang" aria-label="Hang up">☎️</button>
-        <div class="meter" aria-label="Suspicion">
-          <span class="m-label">👁️ SUSPICION</span>
+        <button id="b-hang" class="hang" aria-label="Leave the call">☎️</button>
+        <div class="meter" aria-label="How suspicious she is">
+          <span class="m-label">SHE'S <b id="m-word">CALM</b></span>
           <div class="m-track"><div id="m-fill" class="m-fill"></div></div>
         </div>
         <div id="timer" class="timer">3:20</div>
@@ -166,12 +167,12 @@
       <div id="boss" class="boss">
         <div class="boss-radio">📻</div>
         <div class="boss-text">
-          <small>BOSS <span id="boss-tag"></span></small>
+          <small>BOSS <span id="boss-tag"></span> <em id="boss-mark" class="boss-mark" hidden></em></small>
           <p id="boss-line"></p>
+          <p id="boss-do" class="boss-do"></p>
         </div>
       </div>
 
-      <div class="tricks" id="tricks"></div>
 
       <div class="controls">
         <p id="you-said" class="you-said"></p>
@@ -225,97 +226,93 @@
     <!-- REPORT -->
     <section id="s-report" class="screen scrolls" hidden>
       <div class="report">
-        <div class="r-head">
+        <button type="button" class="back" data-back aria-label="Back to the start">‹ Home</button>
+
+        <!-- What happened, why it mattered, what to remember. Everything else waits below. -->
+        <div class="r-hero">
           <p class="r-mood" id="r-mood"></p>
-          <div class="rank" id="r-rank"></div>
-          <p class="r-rankline" id="r-rankline"></p>
+          <h2 class="r-result" id="r-result"></h2>
           <div class="otp small" id="r-otp"></div>
           <p class="r-flip" id="r-flip"></p>
-          <p class="r-crack" id="r-crack"></p>
         </div>
 
-        <div class="panel who-panel" id="who" hidden>
-          <small class="panel-kicker">WHO PICKED UP</small>
-          <h3 id="who-name"></h3>
-          <p id="who-scene" class="who-scene"></p>
-          <ul id="who-list" class="who-list"></ul>
-          <p id="who-play" class="who-play"></p>
+        <div class="r-lesson">
+          <p class="r-learn" id="r-learn"></p>
+          <p class="r-why" id="r-why"></p>
+          <p class="r-also" id="r-also"></p>
+          <small>REMEMBER</small>
+          <p id="r-remember" class="r-remember"></p>
+          <p class="rules-help">Got a call like this for real? Hang up and call <a href="tel:1930">1930</a>, or report at <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>.</p>
         </div>
 
-        <div class="gags" id="r-gags"></div>
-
-        <div class="panel score-panel">
-          <small class="panel-kicker">NAZAR SCORE</small>
-          <div class="score-row">
-            <div class="score-num"><b id="s-num">?</b><span>/100</span></div>
-            <div class="score-tier"><b id="s-tier">Answer 3 questions</b><span id="s-tierline">They're about your own call. Then you get your score.</span></div>
-          </div>
-          <div id="s-parts" class="score-parts"></div>
-          <p id="s-best" class="score-best"></p>
-        </div>
-
-        <div class="panel quiz-panel" id="quiz">
-          <small class="panel-kicker">SPOT THE RED FLAGS · 10 POINTS EACH</small>
-          <div id="q-list"></div>
-          <button id="b-answers" class="chunky teal wide" disabled>Lock in my answers</button>
-        </div>
-
-        <div class="panel board-panel" id="board" hidden>
-          <small class="panel-kicker">TODAY'S CHALLENGE · LEADERBOARD</small>
-          <p id="board-note" class="board-note"></p>
-          <form id="board-form" class="board-form" hidden>
-            <input id="board-name" maxlength="16" placeholder="Your nickname" autocomplete="off">
-            <button class="chunky mini yellow">Post score</button>
-          </form>
-          <ol id="board-list" class="board-list"></ol>
-        </div>
-
-        <div class="panel run-panel" id="run" hidden>
-          <small class="panel-kicker">YOUR RUN</small>
-          <ol id="run-list" class="run-list"></ol>
-          <div id="run-turn" class="run-turn" hidden>
-            <b id="run-turn-title"></b>
-            <p><span>WHY</span> <i id="run-turn-why"></i></p>
-            <p><span>REAL-WORLD RED FLAG</span> <i id="run-turn-flag"></i></p>
-          </div>
-        </div>
-
-        <button id="b-share" class="chunky yellow wide">Challenge a friend</button>
-
-        <div class="panel lesson-panel">
-          <div class="lp-top">
-            <div class="lp-dadi" data-dadi></div>
-            <div>
-              <small>DADI'S LESSON</small>
-              <p id="r-lesson-title"></p>
-            </div>
-          </div>
-          <div id="r-lessons" class="lessons"></div>
-          <div class="rules">
-            <b>If this ever happens for real:</b>
-            <ol>
-              <li><b>Slow down.</b> Real officials give you time.</li>
-              <li><b>Verify.</b> Hang up, call the office yourself, and tell your family.</li>
-              <li><b>Never share an OTP,</b> with anyone.</li>
-            </ol>
-            <p class="rules-help">Lost money or got a call like this? Call <a href="tel:1930">1930</a> or report at <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>.</p>
-          </div>
-        </div>
-
-        <div class="panel parents">
-          <h3>Now call yours.</h3>
-          <p>Your parents won't play this game. So send them Dadi: a 20-second voice note in Hindi that tells them what to do.</p>
-          <button id="b-parents" class="chunky green wide">Send Dadi to my parents</button>
-          <button id="b-parents-play" class="linkish">▶ Hear it first</button>
-        </div>
-
-        <div class="panel replay">
-          <h3>Next time, someone else picks up.</h3>
-          <p id="r-tip"></p>
-          <p class="replay-next" id="r-next"></p>
-          <button id="b-again" class="chunky pink wide">Call her again</button>
+        <div class="r-actions">
+          <p class="r-hook" id="r-hook"></p>
+          <button id="b-again" class="chunky pink wide">Call again</button>
+          <button id="b-share" class="chunky yellow wide">Challenge a friend</button>
+          <button id="b-parents" class="linkish">Send Dadi's voice note to my parents</button>
           <button id="b-again-daily" class="linkish" hidden>Play today's challenge instead</button>
         </div>
+
+        <details class="r-more" id="r-more">
+          <summary>See the full breakdown: who she was, your score, your run</summary>
+
+          <div class="r-rankrow"><div class="rank" id="r-rank"></div><p class="r-rankline" id="r-rankline"></p></div>
+          <p class="r-crack" id="r-crack"></p>
+
+          <div class="panel who-panel" id="who" hidden>
+            <small class="panel-kicker">WHO PICKED UP</small>
+            <h3 id="who-name"></h3>
+            <p id="who-scene" class="who-scene"></p>
+            <ul id="who-list" class="who-list"></ul>
+            <p id="who-play" class="who-play"></p>
+          </div>
+
+          <div class="panel score-panel">
+            <small class="panel-kicker">NAZAR SCORE</small>
+            <div class="score-row">
+              <div class="score-num"><b id="s-num">?</b><span>/100</span></div>
+              <div class="score-tier"><b id="s-tier">Answer 3 questions</b><span id="s-tierline">They're about your own call. Then you get your score.</span></div>
+            </div>
+            <div id="s-parts" class="score-parts"></div>
+            <p id="s-best" class="score-best"></p>
+          </div>
+
+          <div class="panel quiz-panel" id="quiz">
+            <small class="panel-kicker">SPOT THE RED FLAGS · 10 POINTS EACH</small>
+            <div id="q-list"></div>
+            <button id="b-answers" class="chunky teal wide" disabled>Lock in my answers</button>
+          </div>
+
+          <div class="panel board-panel" id="board" hidden>
+            <small class="panel-kicker">TODAY'S CHALLENGE · LEADERBOARD</small>
+            <p id="board-note" class="board-note"></p>
+            <form id="board-form" class="board-form" hidden>
+              <input id="board-name" maxlength="16" placeholder="Your nickname" autocomplete="off">
+              <button class="chunky mini yellow">Post score</button>
+            </form>
+            <ol id="board-list" class="board-list"></ol>
+          </div>
+
+          <div class="panel run-panel" id="run" hidden>
+            <small class="panel-kicker">YOUR RUN</small>
+            <ol id="run-list" class="run-list"></ol>
+            <div id="run-turn" class="run-turn" hidden>
+              <b id="run-turn-title"></b>
+              <p><span>WHY</span> <i id="run-turn-why"></i></p>
+              <p><span>REAL-WORLD RED FLAG</span> <i id="run-turn-flag"></i></p>
+            </div>
+          </div>
+
+          <div class="panel lesson-panel">
+            <small class="panel-kicker">THE SCRIPT</small>
+            <p id="r-lesson-title" class="lesson-title"></p>
+            <div id="r-lessons" class="lessons"></div>
+          </div>
+
+          <p class="r-tip" id="r-tip"></p>
+          <p class="replay-next" id="r-next"></p>
+          <button id="b-parents-play" class="linkish">▶ Hear Dadi's voice note for parents</button>
+        </details>
 
         <p class="credit">Prisma heard you. Timbre was Dadi. Built on <b>Gnani AI</b>.<br>A comedy game. All characters are fictional.</p>
       </div>
@@ -323,6 +320,17 @@
   </div>
 
   <pre id="debug-card" class="debug-card" hidden></pre>
+
+  <!-- Leaving a call: one tap to confirm, so a slip never ends it. -->
+  <div id="leave" class="leave" hidden role="alertdialog" aria-labelledby="leave-q">
+    <div class="leave-card">
+      <p id="leave-q">Leave the call?</p>
+      <div class="leave-row">
+        <button id="b-stay" class="chunky mini teal">Stay</button>
+        <button id="b-leave" class="chunky mini pink">Leave</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ALWAYS AVAILABLE: REAL HELP -->
   <button id="b-sos" class="sos">🆘 Real scam call?</button>

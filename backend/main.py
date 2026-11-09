@@ -152,6 +152,7 @@ class Start(BaseModel):
     daily: bool = False
     boss_off: bool = False
     recent: list[str] = Field(default_factory=list, max_length=6)  # scenarios this browser met lately
+    calls: int = Field(default=0, ge=0, le=100000)  # calls this browser has played: Boss says less as they learn
 
 
 def _audio(g: game.Game, clip: str) -> str:
@@ -174,11 +175,14 @@ async def start_game(body: Start, request: Request):
     if not code and not body.demo:  # free play: don't hand them the same situation twice in a row
         for _ in range(12):
             code = game.new_code(body.hour)
-            if scenario.pick(character.generate(code), code) not in body.recent:
+            c = character.generate(code)
+            temper = "t:" + character.TEMPERAMENTS[c["temperament"]]["label"].capitalize()  # as the report shows it
+            if scenario.pick(c, code) not in body.recent and temper not in body.recent:
                 break
     # A returning caller makes her warier, so shared scenarios ignore it to stay fair.
     returning = None if body.demo or body.daily or body.code else body.returning_name
-    g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily)
+    g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily,
+                  boss_level=0 if body.calls < 3 else 1 if body.calls < 10 else 2)
     games[g.id] = g
     if body.quiz is not None and not g.demo:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
@@ -244,11 +248,12 @@ async def spoken_reply(token: str):
 async def flip_round(game_id: str):
     """The last round: a stranger's voice calls the player, using the player's own words."""
     g = _get_game(game_id)
-    if not g.own_line:
-        return {"own_line": None, "speech": _audio(g, "flip_open")}
+    tactic, line = g.mirror_line()  # the pattern they leaned on hardest, in their own words
+    if not line:
+        return {"own_line": None, "pattern": None, "speech": _audio(g, "flip_open")}
     token = f"{g.id}-flip"
-    speech[token] = (g.own_line, time.time(), config.PAPPU_VOICE, g.lang)
-    return {"own_line": g.own_line, "speech": f"/api/speech/{token}"}
+    speech[token] = (line, time.time(), config.PAPPU_VOICE, g.lang)
+    return {"own_line": line, "pattern": game.TACTICS[tactic]["label"], "speech": f"/api/speech/{token}"}
 
 
 class FlipResult(BaseModel):
@@ -292,8 +297,14 @@ async def counter_move(game_id: str, body: Counter):
     return g.counter_result(body.effect, body.passed)
 
 
+class End(BaseModel):
+    # Which lessons this browser has already seen, so repeats get shorter. Counts only.
+    seen: dict[str, int] = Field(default_factory=dict, max_length=20)
+    last: str | None = Field(default=None, max_length=30)
+
+
 @app.post("/api/game/{game_id}/end")
-async def end_game(game_id: str):
+async def end_game(game_id: str, body: End | None = None):
     global _stats_dirty
     g = _get_game(game_id)
     if not g.outcome:
@@ -301,7 +312,7 @@ async def end_game(game_id: str):
     if not g.outcome:  # they hung up, or their clock ran out first
         g.outcome = "hung_up"
     first_report = not getattr(g, "reported", False)
-    report = g.report()
+    report = g.report(body.seen if body else None, body.last if body else None)
     if first_report and not g.demo:
         g.reported = True
         stats["plays"] += 1

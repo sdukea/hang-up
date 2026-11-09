@@ -23,7 +23,7 @@ TIERS = [
 MOVE_NAMES = {
     "too_soon": "Asked for the OTP too soon", "contradiction": "Changed your story",
     "repeat": "Same trick again", "off_script": "Off-script line", "backfire": "Wrong approach for her",
-    "rambled": "Rambled while her mind was elsewhere",
+    "rambled": "Rambled while her mind was elsewhere", "pushed": "Kept pushing",
 }
 COUNTER_NAMES = {
     "hold": "She put you on hold", "shout": "She asked you to speak up", "pappu": "Pappu took the phone",
@@ -46,6 +46,8 @@ WHY = {
                  "Scammers adjust to whoever answers. Notice when a caller's tone shifts to fit you."),
     "event": ("Her day caught up with the call. She'd been telling you what was going on.",
               "Real targets are often busy or distracted. A good moment to pause is a good moment to check."),
+    "pushed": ("You stacked pressure on pressure without giving her a breath.",
+               "Pressure that keeps building is a reason to pause, not to act faster."),
     "rambled": ("Her mind was elsewhere today, and long speeches lost her.",
                 "Scammers keep talking to keep you from thinking. You're allowed to stop them."),
     "counter": ("She tested you and you didn't pass.",
@@ -98,7 +100,7 @@ def event_name(e: dict) -> str:
         if e["effect"] == "callback":
             return "Stopped her checking" if e["passed"] else "Let her check"
         return COUNTER_NAMES.get(e["effect"], "Her counter-move") + ("" if e["passed"] else " (failed)")
-    for note in ("too_soon", "contradiction", "repeat", "off_script", "backfire", "rambled"):
+    for note in ("too_soon", "contradiction", "repeat", "off_script", "backfire", "pushed", "rambled"):
         if note in e.get("notes", []):
             return MOVE_NAMES[note]
     tactic = game.TACTICS.get(e.get("tactic"))
@@ -112,7 +114,7 @@ def why(e: dict) -> tuple[str, str]:
         return WHY["event"]
     if e["kind"] == "counter":
         return WHY["let_check"] if e["effect"] == "callback" else WHY["counter"]
-    for note in ("too_soon", "contradiction", "repeat", "off_script", "backfire", "rambled"):
+    for note in ("too_soon", "contradiction", "repeat", "off_script", "backfire", "pushed", "rambled"):
         if note in e.get("notes", []):
             return WHY[note]
     tactic = game.TACTICS.get(e.get("tactic"))

@@ -218,10 +218,13 @@ class Scene:
         }
         return all(checks[k](v) for k, v in when.items())
 
-    def next_event(self, g, said: str, saying: tuple = ()) -> dict | None:
-        """At most one event a turn, decided before she replies so she can react to it."""
+    def next_event(self, g, said: str, saying: tuple = (), settle: bool = False) -> dict | None:
+        """At most one event a turn, decided before she replies so she can react to it.
+        Right after a counter-move (settle), interruptions wait a turn: no pile-ups."""
         for e in self.spec["events"]:
             if e["id"] in self.fired:
+                continue
+            if settle and (e.get("action") or "clock" in e.get("then", {})):
                 continue
             if self.demo and (e.get("action") or "clock" in e.get("then", {})):
                 continue  # the staged demo never gets interrupted

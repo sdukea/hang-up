@@ -271,7 +271,47 @@ function preloadClips() {
 function show(name) {
   for (const id of ["title", "brief", "ring", "game", "end", "flip", "report"]) $(`s-${id}`).hidden = id !== name;
   document.body.classList.toggle("in-game", name === "game" || name === "report");
+  // Screens you can step back from get a history entry, so the phone's Back button works too.
+  if (["brief", "game", "report"].includes(name) && !(history.state && history.state.screen === name)) {
+    try { history.pushState({ screen: name }, ""); } catch (err) { /* sandboxed */ }
+  }
 }
+
+const screenNow = () => ["title", "brief", "ring", "game", "end", "flip", "report"].find((id) => !$(`s-${id}`).hidden);
+
+function goHome() {
+  hush();
+  $("leave").hidden = true;
+  show("title");
+  loadStats();
+}
+
+// Leaving a live call always asks first. Leaving means hanging up: the ending still plays.
+function askLeave() {
+  if (!inCall()) return;
+  releaseTalk();
+  $("leave").hidden = false;
+  $("b-stay").focus();
+}
+
+$("b-stay").addEventListener("click", () => { $("leave").hidden = true; });
+$("b-leave").addEventListener("click", () => {
+  $("leave").hidden = true;
+  endCall("hung_up");
+});
+document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => { sfx.tap(); goHome(); }));
+
+window.addEventListener("popstate", () => {
+  const now = screenNow();
+  if (now === "game" && inCall()) {
+    try { history.pushState({ screen: "game" }, ""); } catch (err) { /* sandboxed */ }
+    askLeave();
+  } else if (now === "brief" || now === "report") {
+    goHome();
+  } else if (now !== "title") {
+    try { history.pushState({ screen: now }, ""); } catch (err) { /* mid-ending: stay put */ }
+  }
+});
 
 function bubble(text, english) {
   const b = $("bubble");
@@ -310,20 +350,40 @@ function jolt() {
   haptic(60);
 }
 
+// Boss: one move at a time. The objective, then what to say, what to avoid, what to watch.
 function setBoss(boss, tag) {
   if (!boss) return;
   $("boss-line").textContent = boss.text;
-  $("boss-tag").textContent = tag || `· Next: ${boss.label}`;
+  $("boss-do").textContent = boss.do || "";
+  quietBoss();
+  const mark = $("boss-mark");
+  mark.hidden = !boss.mark;
+  if (boss.mark) {
+    mark.className = `boss-mark ${boss.mark.kind}`;
+    mark.textContent = `${boss.mark.kind === "good" ? "✓" : "✗"} ${boss.mark.text}`;
+  }
+  $("boss").classList.toggle("warn", Boolean(boss.warn));
+  $("boss-tag").textContent = tag || (boss.warn ? "· Careful" : "· Your move");
   $("boss").classList.remove("new");
   void $("boss").offsetWidth;
   $("boss").classList.add("new");
   sfx.radio();
-  document.querySelectorAll(".trick").forEach((el) => el.classList.toggle("next", el.dataset.id === boss.tactic && !el.classList.contains("used")));
   if (boss.gone) $("boss-tag").textContent = "· Line dead";
+}
+
+// Boss speaks up when something changes, then fades back so Dadi stays the focus.
+function quietBoss() {
+  $("boss").classList.remove("quiet");
+  clearTimeout(state.bossQuiet);
+  state.bossQuiet = setTimeout(() => $("boss").classList.add("quiet"), 7000);
 }
 
 function setBossText(text, tag) {
   $("boss-line").textContent = text;
+  $("boss-do").textContent = "";
+  $("boss-mark").hidden = true;
+  quietBoss();
+  $("boss").classList.remove("warn");
   $("boss-tag").textContent = tag;
   $("boss").classList.remove("new");
   void $("boss").offsetWidth;
@@ -336,6 +396,7 @@ function setSuspicion(value) {
   fill.style.width = `${Math.min(100, value)}%`;
   fill.classList.toggle("warm", value >= 45 && value < 75);
   fill.classList.toggle("hot", value >= 75);
+  $("m-word").textContent = state.signal || (value >= 90 ? "ABOUT TO HANG UP" : value >= 75 ? "SUSPICIOUS" : value >= 45 ? "UNSURE" : "CALM");
   const slot = $("dadi-slot");
   slot.classList.toggle("wary", value >= 45);
 }
@@ -621,6 +682,7 @@ async function runCall() {
       boss_off: $("boss-off").checked,
       returning_name: returning,
       recent: recentScenarios(),
+      calls: Number(safeGet("dadi_calls") || 0),
       quiz: state.quizBefore,
     }, 30000);
     if (!resp.ok) {
@@ -637,7 +699,7 @@ async function runCall() {
     game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
-    voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null, graded: null,
+    voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null, graded: null, signal: "", mirrorPattern: null,
   });
   buildCallScreen(data, hasMic);
   preloadClips();
@@ -654,12 +716,11 @@ async function runCall() {
 
   show("game");
   if (data.boss_off) setBossText(data.boss.text, "· No Boss");
-  else setBossText(data.intel, "· Before she picks up");
+  else setBoss(data.boss, "· Your first move");
   setSuspicion(data.suspicion);
   if (!hasMic) setTimeout(() => pop(mic.blocked ? "YOUR MIC IS BLOCKED" : "NO MICROPHONE", mic.blocked ? "Allow it in your browser settings, or just type." : "No problem. Just type your lines.", "move"), 1200);
   await say(clip(data.greet));
   if (state.over) return;
-  if (!data.boss_off) setBoss(data.boss, "· Your first move");
   startTimer();
   state.idleAt = Date.now() + 14000;
 }
@@ -669,13 +730,6 @@ function buildCallScreen(data, hasMic) {
     s.textContent = "?";
     s.className = "slot";
   });
-  $("tricks").replaceChildren(...data.playbook.map((t) => {
-    const el = document.createElement("div");
-    el.className = "trick";
-    el.dataset.id = t.id;
-    el.textContent = t.label;
-    return el;
-  }));
   bubble("");
   $("you-said").textContent = "";
   $("pappu").hidden = true;
@@ -945,8 +999,9 @@ function pickFiller() {
 // Every move shows which real trick it was. The lesson arrives as part of the fun.
 function showMoveResult(r) {
   const move = r.move;
+  state.signal = (r.signal || "").toUpperCase();  // how she sounds now, never a number
   setSuspicion(r.suspicion);
-  const trick = document.querySelector(`.trick[data-id="${move.tactic}"]`);
+  const name = TACTIC_NAMES[move.tactic] || (move.tactic === "ask" ? "The OTP ask" : null);
   const notes = move.notes || [];
   if (notes.includes("story_held")) {
     pop("YOUR STORY HELD", "She believed you. For now.", "good");
@@ -967,16 +1022,14 @@ function showMoveResult(r) {
     sfx.warn();
   } else if (notes.includes("off_script")) {
     pop("THAT WASN'T A SCAM MOVE", "Boss is shaking his head", "gag");
-  } else if (trick) {
-    pop(`${trick.textContent.toUpperCase()}!`, move.trust_gain >= 10 ? "It's working" : "Weak. She's barely listening", move.trust_gain >= 10 ? "good" : "");
+  } else if (name && move.trust_gain >= 10) {
+    pop(`${name.toUpperCase()}!`, "It's working", "good");
     sfx.trick();
   }
-  if (trick && !trick.classList.contains("used")) trick.classList.add("used");
   $("dadi-slot").classList.toggle("fond", r.trust >= 55);
   setBoss(r.boss);
   for (const gag of r.gags || []) {
     state.gags[gag] = (state.gags[gag] || 0) + 1;
-    if (GAG_LABELS[gag]) setTimeout(() => pop(`+1 ${GAG_LABELS[gag]}`, "", "gag"), 500);
   }
   if (r.suspicion >= 75) sfx.warn();
 }
@@ -1041,7 +1094,7 @@ async function runCounter(effect, event = null) {
   const note = COUNTER_NOTES[effect];
   if (note) {
     pop(note[0], note[1], "move");
-    if (!state.game.boss_off) setBossText(note[state.lang === "en" ? 3 : 2], "· She's fighting back");
+
   }
   if (effect === "hold") {
     await say(clip((event && event.clip) || "hold"));
@@ -1153,13 +1206,14 @@ $("type-form").addEventListener("submit", async (e) => {
   await handleSaid(text, 1, true);
 });
 
-$("b-hang").addEventListener("click", () => endCall("hung_up"));
+$("b-hang").addEventListener("click", askLeave);
 
 // ---------- How it ends ----------
 
 async function endCall(outcome) {
   if (state.over) return;
   state.over = true;
+  $("leave").hidden = true;
   clearInterval(state.timerId);
   clearTimeout(state.callbackTimer);
   hush();
@@ -1171,7 +1225,7 @@ async function endCall(outcome) {
 
   let report = null;
   try {
-    const resp = await post(`/api/game/${state.game.id}/end`);
+    const resp = await post(`/api/game/${state.game.id}/end`, seenLessons());
     if (resp.ok) report = await resp.json();
   } catch (err) {
     console.warn(err);
@@ -1279,6 +1333,7 @@ async function flipRound() {
     if (run !== state.speechRun) return;
     if (call && call.own_line) {
       ownWords = true;
+      state.mirrorPattern = call.pattern;
       $("flip-line").textContent = `"${call.own_line}"`;
       $("flip-note").textContent = "Those are your words. It's someone else's voice.";
     } else {
@@ -1304,9 +1359,10 @@ async function flipRound() {
   $("flip-kicker").textContent = hungUp ? "You hung up" : picked === "froze" ? "You froze" : "You gave the OTP";
   $("flip-title").textContent = hungUp ? `That was ${script}. And you hung up.` : `${Script} just worked on you.`;
   $("flip-line").textContent = "";
-  $("flip-note").textContent = hungUp
-    ? "That's the feeling you need to recognise. Hang up, then tell someone you trust."
-    : "That's the feeling you need to recognise. In a real call, just hang up.";
+  const familiar = ownWords && state.mirrorPattern ? `Sound familiar? That's the ${state.mirrorPattern} you used on her. ` : "";
+  $("flip-note").textContent = familiar + (hungUp
+    ? "Hang up, then tell someone you trust."
+    : "That's the feeling to recognise. In a real call, just hang up.");
   if (hungUp) sfx.good(); else { sfx.bad(); jolt(); }
   $("b-flip-next").hidden = false;
   const heard = say(clip(hungUp ? "flip_pass" : "flip_fail"));
@@ -1324,6 +1380,8 @@ function showReport() {
   $("r-mood").textContent = r.name;
   renderWho(r.who);
   rememberScenario(r.who && r.who.scenario && r.who.scenario.id);
+  rememberScenario(r.who && r.who.temperament && `t:${r.who.temperament.label}`);
+  if (!state.game.demo) safeSet("dadi_calls", Number(safeGet("dadi_calls") || 0) + 1);  // Boss says less as you learn
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
   $("r-crack").textContent = state.game.demo ? "" : !r.crack_rate ? "Nobody has got all four digits yet." : `Only ${r.crack_rate}% of callers ever get all four digits.`;
@@ -1340,13 +1398,19 @@ function showReport() {
     return slot;
   }));
 
-  const gags = r.gags || {};
-  $("r-gags").replaceChildren(...Object.entries(gags).filter(([, n]) => n > 0).map(([gag, n]) => {
-    const chip = document.createElement("span");
-    chip.className = "gag-chip";
-    chip.textContent = `${GAG_LABELS[gag]} ×${n}`;
-    return chip;
-  }));
+  $("r-result").textContent = {
+    cracked: "You got the OTP. It was 1930.", busted: "She caught you.", timeout: "She out-talked you.",
+    hung_up: "You hung up.", reformed: "You stopped, and told her the truth.",
+  }[r.outcome] || r.rank;
+  // One learning moment from what actually happened, and one thing to remember. The rest waits below.
+  const lesson = r.learning || { headline: "", why: r.rank_line, remember: "Real officials give you time. Pressure is the warning sign." };
+  $("r-learn").textContent = lesson.headline;
+  $("r-why").textContent = lesson.why;
+  $("r-also").textContent = lesson.also || "";
+  $("r-remember").textContent = lesson.remember;
+  $("r-hook").textContent = lesson.next || "";
+  noteLesson(lesson.type);
+  $("r-more").open = Boolean(r.daily);  // daily players need the questions to post a score
 
   // What they actually did in the last round. It's the one choice we really saw.
   $("r-flip").textContent = { hang: "Then your phone rang, and you hung up.", otp: "Then your phone rang, and you gave the OTP.", froze: "Then your phone rang, and you froze." }[state.flipPicked] || "";
@@ -1407,14 +1471,27 @@ function renderWho(who) {
   $("who-play").textContent = `What worked best on her: ${TACTIC_NAMES[who.works]}. What worked worst: ${TACTIC_NAMES[who.fails]}.`;
 }
 
+// Lessons this browser has seen: repeats come back shorter, and last time's lesson gives way.
+function seenLessons() {
+  try { return { seen: JSON.parse(safeGet("dadi_seen") || "{}"), last: safeGet("dadi_last_lesson") }; } catch (err) { return {}; }
+}
+
+function noteLesson(type) {
+  if (!type || state.game.demo) return;
+  const { seen = {} } = seenLessons();
+  seen[type] = (seen[type] || 0) + 1;
+  safeSet("dadi_seen", JSON.stringify(seen));
+  safeSet("dadi_last_lesson", type);
+}
+
 // The last few situations this browser saw, so free play doesn't repeat them back to back.
 function recentScenarios() {
-  try { return JSON.parse(safeGet("dadi_recent") || "[]").slice(0, 4); } catch (err) { return []; }
+  try { return JSON.parse(safeGet("dadi_recent") || "[]").slice(0, 6); } catch (err) { return []; }
 }
 
 function rememberScenario(id) {
   if (!id || state.game.demo) return;
-  safeSet("dadi_recent", JSON.stringify([id, ...recentScenarios().filter((x) => x !== id)].slice(0, 4)));
+  safeSet("dadi_recent", JSON.stringify([id, ...recentScenarios().filter((x) => x !== id)].slice(0, 6)));
 }
 
 // Development only: the server sends this when it runs with DEBUG=1.

@@ -128,8 +128,9 @@ body {
 .hang { flex: none; width: 44px; height: 44px; font-size: 20px; line-height: 1; background: var(--red); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
 .hang:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .meter { flex: 1; min-width: 0; }
-.m-label { display: block; font: 400 12px/1.2 var(--display); }
-.m-track { height: 20px; background: var(--ink); border: 3px solid var(--ink); border-radius: 10px; overflow: hidden; }
+.m-label { display: block; font: 400 11px/1.2 var(--display); letter-spacing: .03em; color: #cdbbe8; }
+.m-label b { font-weight: 400; color: #fff; }
+.m-track { height: 12px; background: var(--ink); border: 3px solid var(--ink); border-radius: 10px; overflow: hidden; }
 .m-fill { height: 100%; width: 10%; border-radius: 6px; background: var(--teal); transition: width .5s cubic-bezier(.2,1.4,.5,1), background .3s; }
 .m-fill.warm { background: var(--gold); }
 .m-fill.hot { background: var(--red); animation: alarm .5s steps(2) infinite; }
@@ -194,12 +195,20 @@ body {
 @keyframes shake { 25% { transform: translate(-4px, 2px); } 75% { transform: translate(4px, -2px); } }
 
 .boss { display: flex; align-items: center; gap: 9px; padding: 6px 10px; background: var(--ink); min-height: 62px; }
-.boss.new { animation: radio .5s steps(3) 2; }
+.boss.new { animation: radio .5s steps(3) 1; }
+.boss { transition: opacity .6s; }
+.boss.quiet { opacity: .55; }
+.boss-do { margin: 2px 0 0 !important; font-size: 14px !important; font-weight: 500 !important; line-height: 1.2 !important; color: #e9dcff !important; }
 @keyframes radio { 50% { background: #41256a; } }
 .boss-radio { flex: none; font-size: 26px; }
 .boss small { font: 400 12px var(--display); color: var(--teal); }
 .boss small span { color: var(--gold); margin-left: 4px; }
 .boss p { margin: 0; font-size: 15.5px; line-height: 1.18; font-weight: 700; color: #fff; }
+.boss.warn p { color: #ffb3c9; }
+.boss-mark { font-style: normal; font: 700 12px var(--body); margin-left: 6px; padding: 0 6px; border-radius: 6px; }
+.boss-mark.good { background: var(--green); color: var(--ink); }
+.boss-mark.bad { background: var(--pink); color: #fff; }
+
 
 .tricks { display: flex; gap: 4px; padding: 6px 8px; overflow: hidden; background: #1f0a44; }
 .trick { flex: 1; min-width: 0; padding: 3px 1px; font: 700 10.5px/1.05 var(--body); text-align: center; color: #937ab8; border: 2px solid #4b2e7a; border-radius: 6px; }
@@ -257,7 +266,45 @@ body {
 
 /* ---------- Report ---------- */
 #s-report { background: var(--night); }
-.report { padding: max(18px, env(safe-area-inset-top)) 14px 70px; display: grid; gap: 16px; }
+.report { padding: max(14px, env(safe-area-inset-top)) 16px 70px; display: grid; gap: 18px; }
+
+/* Back: quiet, always in the same place */
+.back {
+  justify-self: start; align-self: flex-start; min-height: 40px; padding: 6px 12px 6px 8px; cursor: pointer;
+  font: 700 16px var(--body); color: #e5d8fb; background: transparent; border: 2px solid #ffffff33; border-radius: 999px;
+}
+.back:focus-visible { outline: 3px solid var(--gold); }
+#s-brief .back { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 2; }
+
+/* The result, the reason, what to remember. Then the actions. */
+.r-hero { text-align: center; }
+.r-result { margin: 4px 0 6px; font: 400 clamp(28px, 8.5vw, 40px)/1.08 var(--display); color: #fff; text-shadow: 3px 3px 0 var(--ink); }
+.r-lesson { padding: 16px; color: var(--ink); background: var(--cream); border: var(--edge); border-radius: 18px; }
+.r-why { margin: 0 0 12px; font-size: 18px; font-weight: 700; line-height: 1.3; }
+.r-lesson small { font: 400 12px var(--display); letter-spacing: .05em; color: var(--pink-d); }
+.r-learn { margin: 0 0 4px; font: 400 20px/1.1 var(--display); color: var(--pink-d); }
+.r-learn:empty, .r-also:empty, .r-hook:empty { display: none; }
+.r-also { margin: -6px 0 12px; font-size: 15.5px; font-weight: 600; line-height: 1.3; color: #5a4a72; }
+.r-remember { margin: 4px 0 10px; font-size: 17px; font-weight: 700; line-height: 1.3; }
+.r-hook { margin: 0; text-align: center; font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--gold); }
+.r-lesson .rules-help { margin: 0; padding-top: 10px; border-top: 2px dashed #1b0b2e33; font-size: 15px; line-height: 1.3; }
+.r-lesson .rules-help a { color: var(--pink-d); font-weight: 800; }
+.r-actions { display: grid; gap: 12px; }
+.r-actions .linkish { margin: 0 auto; }
+.r-more { color: var(--cream); }
+.r-more summary { cursor: pointer; padding: 12px 4px; font-weight: 700; text-align: center; color: #e5d8fb; text-decoration: underline; list-style: none; }
+.r-more summary::-webkit-details-marker { display: none; }
+.r-more[open] summary { margin-bottom: 8px; }
+.r-more > * + * { margin-top: 14px; }
+.r-rankrow { text-align: center; }
+.r-tip, .r-more .replay-next { margin: 0; text-align: center; line-height: 1.3; }
+.lesson-title { margin: 0 0 10px !important; font-weight: 700; line-height: 1.25; }
+
+/* Leave the call? A small sheet, not a giant modal */
+.leave { position: fixed; inset: 0; z-index: 40; display: grid; place-items: end center; padding: 16px; background: #0007; }
+.leave-card { width: min(100%, 420px); margin-bottom: max(16px, env(safe-area-inset-bottom)); padding: 16px; text-align: center; color: var(--ink); background: var(--cream); border: var(--edge); border-radius: 18px; box-shadow: var(--pop); }
+.leave-card p { margin: 0 0 12px; font: 400 22px var(--display); }
+.leave-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .r-head { padding: 16px 12px; text-align: center; background: var(--plum); border: var(--edge); border-radius: 20px; box-shadow: var(--pop); }
 .r-mood { margin: 0; font-weight: 700; color: var(--gold); }
 .rank { display: inline-block; margin: 6px 0; padding: 7px 16px; font: 400 clamp(25px, 8vw, 34px)/1.05 var(--display); color: var(--ink); background: var(--gold); border: var(--edge); border-radius: 12px; box-shadow: var(--pop); transform: rotate(-2deg); animation: stampin .45s cubic-bezier(.2,1.6,.4,1); }

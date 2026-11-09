@@ -85,6 +85,8 @@ Nothing tells you any of this. You work her out from how she talks, and what lan
 
 Six real tactics. Boss teaches each one, and Dadi teaches how to beat it. Use the same trick twice and she notices.
 
+Boss coaches one move at a time, reacting to what just happened: what you're after, and the one thing to say next, plus a quick ✓ or ✗ on your last move. Then he steps back so Dadi stays the focus. He works from the standard script and what he's seen of her, so his advice can still be wrong for this particular Dadi.
+
 <img src="docs/readme/tactics.png" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
 
 ## Dadi fights back
@@ -131,7 +133,9 @@ The idea is inspired by inoculation research, which found that playing the manip
 
 ## Score, replay, today's challenge
 
-Getting the digits is half of it. Every call ends with a **Nazar Score** out of 100:
+Every call ends with **one lesson from what you actually did**: you pushed too hard, you got her trust first, you stopped her checking. It's worded around who she was, and one thing to remember for a real call. Lessons you've already had come back shorter.
+
+Then, under the full breakdown, a **Nazar Score** out of 100:
 
 | Part | Points |
 |---|---|
