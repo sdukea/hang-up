@@ -1,0 +1,62 @@
+/* ?trailer=1 only: the phone in a dark room, the camera moving in and out of it. Loaded by trailer.js. */
+body.trailer { margin: 0; overflow: hidden; background: #07040d; cursor: none; }
+body.trailer * { cursor: none !important; }
+#tr-stage { position: fixed; inset: 0; overflow: hidden; background: #07040d; }
+#tr-cam { position: absolute; left: 50%; top: 50%; width: 405px; height: 720px; margin: -360px 0 0 -202.5px;
+          transform-origin: 50% 50%; transform: scale(1.5); will-change: transform; }
+body.trailer #app { position: absolute; inset: 0; height: 720px; max-width: none; width: 405px; margin: 0;
+                    border-radius: 34px; box-shadow: 0 0 0 10px #140c22, 0 0 0 11px #2a1d40; }
+body.trailer .screen { animation: none; }
+
+/* only what the story needs */
+body.trailer #b-hang, body.trailer #timer, body.trailer #demo-tag, body.trailer #b-type, body.trailer #b-sos-2,
+body.trailer #b-sos, body.trailer #type-form, body.trailer #pops, body.trailer .boss-do, body.trailer #b-flip-next { display: none !important; }
+body.trailer #boss.quiet { opacity: 1; }
+body.trailer #boss.hush { opacity: 0; transition: opacity .4s; }
+body.trailer #flip-choices .chunky.pressed { transform: translateY(5px) scale(.97); box-shadow: 0 0 0 #1b0b2e; filter: brightness(1.15); }
+
+/* the call pulse: the one motif */
+#tr-pulse { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; opacity: 0; transition: opacity .6s; }
+#tr-pulse.on { opacity: 1; }
+#tr-pulse i { position: absolute; left: -160px; top: -160px; width: 320px; height: 320px; border-radius: 50%;
+              border: 2px solid rgba(255, 243, 214, .5); opacity: 0; }
+#tr-pulse.on i { animation: tr-ring 2.4s cubic-bezier(.2, .6, .3, 1) infinite; }
+#tr-pulse.on i:nth-child(2) { animation-delay: .8s; }
+#tr-pulse.on i:nth-child(3) { animation-delay: 1.6s; }
+#tr-pulse.slow.on i { animation-duration: 3.6s; border-color: rgba(255, 179, 0, .55); }
+#tr-pulse.slow.on i:nth-child(2) { animation-delay: 1.2s; }
+#tr-pulse.slow.on i:nth-child(3) { animation-delay: 2.4s; }
+@keyframes tr-ring { 0% { transform: scale(.35); opacity: .0; } 15% { opacity: .9; } 100% { transform: scale(3.4); opacity: 0; } }
+
+/* black, for cuts and silence */
+#tr-black { position: absolute; inset: 0; background: #000; opacity: 1; pointer-events: none; }
+#tr-black.fade { transition: opacity .5s ease; }
+
+/* words: punctuation, not narration */
+.tr-type { position: absolute; left: 0; right: 0; text-align: center; color: #fff3d6; font: 800 72px/1.05 "Baloo 2", system-ui, sans-serif;
+           letter-spacing: .14em; text-transform: uppercase; opacity: 0; transition: opacity .35s ease; pointer-events: none; }
+.tr-type.on { opacity: 1; }
+.tr-type small { display: block; margin-top: 18px; font-weight: 600; font-size: 24px; letter-spacing: .08em; text-transform: none; color: #cfc4b0; }
+#tr-side-l, #tr-side-r { position: absolute; top: 50%; width: 560px; transform: translateY(-50%); font-size: 66px; }
+#tr-side-l { left: 90px; right: auto; text-align: left; }
+#tr-side-r { right: 90px; left: auto; text-align: right; }
+#tr-mid { top: 50%; transform: translateY(-50%); }
+#tr-sub { bottom: 72px; font: 700 34px/1.2 "Baloo 2", system-ui, sans-serif; letter-spacing: .02em; text-transform: none; color: #fff3d6; }
+#tr-unknown { top: calc(50% + 150px); font-size: 30px; letter-spacing: .4em; color: #cfc4b0; }
+
+/* the 1930 set piece */
+#tr-otp { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-60%); display: flex; justify-content: center; gap: 34px;
+          font: 400 190px/1 Bungee, system-ui, sans-serif; color: #fff3d6; transition: gap .7s cubic-bezier(.3, 1.3, .5, 1), transform .7s cubic-bezier(.3, 1.3, .5, 1); }
+#tr-otp span { opacity: 0; transition: opacity .25s ease, color .5s ease; }
+#tr-otp span.on { opacity: 1; }
+#tr-otp.merged { gap: 4px; transform: translateY(-60%) scale(1.25); }
+#tr-otp.merged span { color: #ffb300; }
+#tr-otp-k { top: calc(50% - 250px); font-size: 26px; letter-spacing: .4em; color: #cfc4b0; }
+#tr-otp-n { top: calc(50% + 150px); font-size: 34px; letter-spacing: .1em; }
+#tr-final { top: 50%; transform: translateY(-62%); }
+#tr-final b { display: block; font: 400 150px/1 Bungee, system-ui, sans-serif; letter-spacing: .04em; color: #fff3d6; }
+#tr-credit { bottom: 64px; font-size: 22px; letter-spacing: .3em; color: #8d8399; }
+
+#tr-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #07040d; z-index: 9;
+           color: #fff3d6; font: 800 30px "Baloo 2", system-ui, sans-serif; letter-spacing: .3em; }
+body.trailer.ready #tr-play { cursor: pointer; }

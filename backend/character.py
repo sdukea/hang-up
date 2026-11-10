@@ -19,6 +19,8 @@ import random
 import secrets
 import string
 
+from . import gender
+
 TACTICS = ["authority", "fear", "urgency", "secrecy", "rapport"]
 
 # Hour bands: 0 morning, 1 late morning, 2 afternoon, 3 evening, 4 night.
@@ -219,18 +221,250 @@ PHONES = {
 COUNTERS = ["hold", "shout", "callback", "decoy", "pappu"]
 SHARPEN = 1.5
 
+# ---- Pinky Didi: the college-going granddaughter. Same machinery, different person.
+# She isn't immune to anything: authority gets her attention and then she checks it,
+# flattery opens her up until she notices it, fear lands only if it doesn't sound like a reel.
+PINKY_SITUATIONS = {
+    "hostel": {
+        "label": "in her hostel room", "bands": {2, 3, 4},
+        "voice": "She is in her hostel room, half studying and half scrolling.",
+        "mods": {"rapport": 1.05, "urgency": 0.9, "secrecy": 1.15}, "social": ["roommate", "alone"],
+        "moods": ["content", "tired", "cheerful", "irritable"], "effects": [],
+    },
+    "canteen": {
+        "label": "at the college canteen", "bands": {1, 2},
+        "voice": "She is at the college canteen. It's noisy, and her friends keep pulling her attention.",
+        "mods": {"secrecy": 0.8, "rapport": 1.1}, "social": ["friends_near"],
+        "moods": ["cheerful", "content"], "effects": ["hold"], "holds": True,
+    },
+    "metro": {
+        "label": "on the metro", "bands": {0, 3},
+        "voice": "She is on a crowded metro with one earphone in, watching for her stop.",
+        "mods": {"urgency": 1.15, "authority": 0.9}, "social": ["alone"],
+        "moods": ["tired", "irritable", "content"], "effects": ["hold"], "holds": True, "pace": 1,
+    },
+    "exam": {
+        "label": "cramming for an exam", "bands": {0, 1, 3, 4},
+        "voice": "She has an exam tomorrow, notes everywhere, stressed and short on time.",
+        "mods": {"urgency": 1.05, "fear": 1.15, "authority": 1.1}, "social": ["alone", "roommate"],
+        "moods": ["worried", "tired", "irritable"], "effects": [],
+    },
+}
+PINKY_TEMPERAMENTS = {
+    "savvy": {
+        "label": "street-smart and sceptical", "mods": {"authority": 0.9, "fear": 0.8, "rapport": 1.05, "secrecy": 1.15},
+        "voice": "Street-smart and phone-savvy. She has seen the scam reels and half-expects a trick, but she's curious enough to listen.",
+        "habit": "asks for proof: a name, an official email, a website", "pace": 0, "words": 16, "start": 5,
+        "tell": "She kept asking for proof.", "tests_story": True, "checks_authority": True,
+    },
+    "busy": {
+        "label": "always in a rush", "mods": {"urgency": 1.2, "rapport": 0.8, "authority": 1.3},
+        "voice": "Always in a rush. She wants this over fast and gets snappy when people waste her time.",
+        "habit": "says she has no time and tells you to get to the point", "pace": 1, "words": 12, "start": 0,
+        "tell": "She wanted it short.",
+    },
+    "ambitious": {
+        "label": "ambitious and hopeful", "mods": {"rapport": 1.2, "secrecy": 1.3, "fear": 0.75},
+        "voice": "Ambitious and hopeful about her career. Opportunities excite her; threats mostly annoy her.",
+        "habit": "gets excited by anything that sounds like an opportunity, then asks what's in it for her", "pace": 0, "words": 18, "start": 0,
+        "tell": "Opportunities lit her up.",
+    },
+    "anxious": {
+        "label": "anxious and overthinking", "mods": {"fear": 1.4, "urgency": 1.05, "secrecy": 0.7, "authority": 1.15},
+        "voice": "Anxious and overthinking. Bad news hits her hard, and her first instinct is to text her friends about it.",
+        "habit": "panics a little, then says she'll ask her friends", "pace": 0, "words": 18, "start": -5,
+        "tell": "She kept wanting to ask her friends.",
+    },
+    "chill": {
+        "label": "laid-back and jokey", "mods": {"rapport": 1.15, "fear": 0.7, "authority": 0.95, "secrecy": 1.2},
+        "voice": "Laid-back and jokey. Hard to rattle; she treats the call like a funny story for later.",
+        "habit": "cracks jokes and calls the caller 'bro' or 'uncle'", "pace": 0, "words": 18, "start": 0,
+        "tell": "She laughed things off.",
+    },
+}
+PINKY_TRAITS = {
+    "googler": {
+        "cue": "Now and then, say you're looking up the number or the company online while you talk.",
+        "effects": ["callback"], "checks_authority": True,
+        "reveal": "She checks things online.", "tell": "She kept saying she'd look things up.",
+    },
+    "receipts": {
+        "cue": "Remember exactly what the caller claimed, and point it out if any detail changes.",
+        "trap": 0.85, "contradiction": 12, "tests_story": True,
+        "reveal": "She kept receipts of everything you said.", "tell": "She quoted your earlier claims back.",
+    },
+    "group_chat": {
+        "cue": "Mention that you'll check with your friends' group chat.",
+        "mods": {"secrecy": 0.6}, "heat": {"secrecy": 6},
+        "reveal": "She tells her friends everything.", "tell": "She kept mentioning her friends.",
+    },
+    "reel_aware": {
+        "cue": "You've seen viral reels about 'digital arrest' scams. Bring it up if anything sounds familiar.",
+        "mods": {"fear": 0.6}, "heat": {"fear": 7}, "start": 10,
+        "reveal": "She'd seen scam reels.", "tell": "She brought up a reel she'd seen.",
+    },
+    "people_pleaser": {
+        "cue": "You find it hard to be rude to someone polite. Soften when the caller is respectful.",
+        "mods": {"rapport": 1.15, "authority": 1.3},
+        "reveal": "She found it hard to say no.", "tell": "She kept apologising and going along.",
+    },
+    "fomo": {
+        "cue": "Anything with a deadline or a limited chance makes you want to act quickly.",
+        "mods": {"urgency": 1.25},
+        "reveal": "Deadlines rushed her.", "tell": "She sped up whenever there was a deadline.",
+    },
+}
+PINKY_SOCIAL = {
+    "alone": {"voice": "She is on her own.", "reveal": "on her own"},
+    "roommate": {"voice": "Her roommate is in the room, half listening.", "mods": {"secrecy": 0.85}, "reveal": "with her roommate listening"},
+    "friends_near": {"voice": "Her friends are right next to her, nosy and giggling.", "mods": {"secrecy": 0.75}, "reveal": "with her friends around"},
+}
 
-def new_code(hour: int, rng: random.Random | None = None) -> str:
-    """A fresh scenario code: the hour band, then four characters of seed."""
+# ---- Dadaji: the retired government clerk. A different decision problem again:
+# he keeps a diary, wants reference numbers and the proper channel, and catches any
+# detail that changes. Consistency and procedure matter more than charm or pressure.
+DADAJI_NAMES = [
+    ("Mohan", "मोहन"), ("Ramesh", "रमेश"), ("Suresh", "सुरेश"), ("Harish", "हरीश"), ("Om Prakash", "ओम प्रकाश"),
+    ("Krishan", "कृष्ण"), ("Satish", "सतीश"), ("Vinod", "विनोद"), ("Mahesh", "महेश"), ("Jagdish", "जगदीश"),
+]
+DADAJI_SITUATIONS = {
+    "newspaper": {
+        "label": "reading the morning paper", "bands": {0, 1},
+        "voice": "He is reading the morning newspaper with his tea, glasses on his nose.",
+        "mods": {"authority": 1.1, "urgency": 0.85}, "social": ["alone", "wife_near"],
+        "moods": ["content", "irritable", "cheerful"], "effects": [],
+    },
+    "walk": {
+        "label": "on his walk in the park", "bands": {0, 3},
+        "voice": "He is on his walk in the park, a little out of breath, with his walking friends nearby.",
+        "mods": {"secrecy": 0.8}, "social": ["friends_park", "alone"],
+        "moods": ["cheerful", "content"], "effects": ["shout"], "noisy": True,
+    },
+    "bank": {
+        "label": "in the queue at the bank", "bands": {1, 2},
+        "voice": "He is standing in the queue at his bank branch, passbook in hand.",
+        "mods": {"authority": 0.85, "urgency": 1.1}, "social": ["alone"],
+        "moods": ["irritable", "tired", "content"], "effects": ["callback"], "checks_authority": True,
+    },
+    "news": {
+        "label": "watching the evening news", "bands": {3, 4},
+        "voice": "He is watching the evening news with the volume up.",
+        "mods": {"fear": 1.1, "authority": 1.05}, "social": ["wife_near", "alone"],
+        "moods": ["irritable", "worried", "content"], "effects": ["shout"], "noisy": True,
+    },
+    "rest": {
+        "label": "resting after lunch", "bands": {2, 4},
+        "voice": "He was resting and is a little groggy, looking for his spectacles.",
+        "mods": {"urgency": 0.9, "secrecy": 1.1}, "social": ["alone", "wife_near"],
+        "moods": ["tired", "irritable", "content"], "effects": ["hold"], "holds": True,
+    },
+}
+DADAJI_TEMPERAMENTS = {
+    "stickler": {
+        "label": "a stickler for procedure", "mods": {"authority": 1.2, "urgency": 0.6, "rapport": 0.85, "secrecy": 0.85},
+        "voice": "A retired government clerk and a stickler for procedure. He wants file numbers, reference numbers and the proper channel. Proper process impresses him; shortcuts offend him.",
+        "habit": "asks for reference numbers, branch names and the proper procedure, and notes them down", "pace": 0, "words": 16, "start": 5,
+        "tell": "He kept asking for reference numbers and procedure.", "tests_story": True, "checks_authority": True,
+    },
+    "veteran": {
+        "label": "proud of his years of service", "mods": {"rapport": 1.2, "authority": 0.75, "fear": 0.9, "secrecy": 1.1},
+        "voice": "Proud of his thirty-five years in government service. He says he has seen every trick, and he loves being respected for it.",
+        "habit": "tells you how things were done in his day and corrects your procedure", "pace": 0, "words": 20, "start": 0,
+        "tell": "He kept telling you how things worked in his day.",
+    },
+    "grumpy": {
+        "label": "grumpy and short-tempered", "mods": {"rapport": 0.65, "authority": 1.2, "secrecy": 1.25, "urgency": 0.9},
+        "voice": "Grumpy and short-tempered. Small talk irritates him; he wants facts, quickly.",
+        "habit": "grumbles and demands you come to the point", "pace": 1, "words": 13, "start": 5,
+        "tell": "He got shorter with you whenever you sweet-talked.",
+    },
+    "fretful": {
+        "label": "anxious about money", "mods": {"fear": 1.35, "urgency": 1.2, "secrecy": 0.8},
+        "voice": "Anxious about money and health since he retired. Bad news shakes him, and he keeps asking what will happen to his savings.",
+        "habit": "worries out loud about his pension and savings", "pace": 0, "words": 18, "start": -5,
+        "tell": "He kept asking what would happen to his savings.",
+    },
+    "storyteller": {
+        "label": "lonely and talkative", "mods": {"rapport": 1.1, "secrecy": 1.25, "urgency": 0.8, "fear": 0.9},
+        "voice": "Lonely since he retired, and delighted to have someone to talk to. He tells long stories about his office days.",
+        "habit": "drifts into stories about his office days", "pace": -1, "words": 22, "start": -5,
+        "tell": "He kept drifting into stories about his office.",
+    },
+}
+DADAJI_TRAITS = {
+    "diary": {
+        "cue": "Write down everything the caller claims in your diary, and read details back to them. Point out any detail that changes.",
+        "trap": 0.9, "contradiction": 15, "tests_story": True,
+        "reveal": "He wrote down everything you said.", "tell": "He read your own claims back from his diary.",
+    },
+    "ex_bank": {
+        "cue": "You worked thirty years in a bank. Ask about branch codes and proper procedure, and say you'll ring the branch yourself.",
+        "effects": ["callback"], "first": "callback", "checks_authority": True, "mods": {"authority": 0.8},
+        "reveal": "He knew banking procedure inside out.", "tell": "He asked about branch codes and procedure.",
+    },
+    "police_nephew": {
+        "cue": "Your nephew is a sub-inspector. Mention him when the caller threatens you.",
+        "mods": {"fear": 0.6}, "heat": {"fear": 7},
+        "reveal": "He has a policeman in the family.", "tell": "He brought up his nephew in the police.",
+    },
+    "respect": {
+        "cue": "Proper, respectful address matters to you. Warm up to callers who speak to you respectfully.",
+        "mods": {"rapport": 1.1, "authority": 1.15},
+        "reveal": "Respect opened him up.", "tell": "He softened whenever you were respectful.",
+    },
+    "pension_worry": {
+        "cue": "Anything about your pension or savings worries you at once.",
+        "mods": {"fear": 1.2, "urgency": 1.15},
+        "reveal": "His pension was his weak spot.", "tell": "He kept coming back to his pension.",
+    },
+    "stubborn": {
+        "cue": "Get slower and more stubborn whenever you're rushed.",
+        "mods": {"urgency": 0.65}, "heat": {"urgency": 7},
+        "reveal": "Rushing made him dig in.", "tell": "He slowed down whenever you hurried him.",
+    },
+}
+DADAJI_SOCIAL = {
+    "alone": {"voice": "He is on his own.", "reveal": "on his own"},
+    "wife_near": {"voice": "His wife is in the next room and might overhear.", "mods": {"secrecy": 0.8}, "reveal": "with his wife in the next room"},
+    "friends_park": {"voice": "His walking friends are right beside him, listening in.", "mods": {"secrecy": 0.75}, "reveal": "with his walking friends around"},
+}
+
+# Who can pick up. Dadi's tables are the originals above, untouched.
+ROLES = {
+    "dadi": {"situations": SITUATIONS, "temperaments": TEMPERAMENTS, "traits": TRAITS, "social": SOCIAL,
+             "voice": "Chitra", "model": "timbre-v2.5", "audio": ""},
+    "didi": {"situations": PINKY_SITUATIONS, "temperaments": PINKY_TEMPERAMENTS, "traits": PINKY_TRAITS, "social": PINKY_SOCIAL,
+             "voice": "Zahira", "model": "timbre-v2.5", "audio": "didi/"},
+    "dadaji": {"situations": DADAJI_SITUATIONS, "temperaments": DADAJI_TEMPERAMENTS, "traits": DADAJI_TRAITS, "social": DADAJI_SOCIAL,
+               "voice": "Prakash", "model": "timbre-v3.0", "audio": "dadaji/"},
+}
+ROLE_LETTERS = {"P": "didi", "D": "dadaji"}  # a 6th character on a scenario code; plain 5-character codes are Dadi, as before
+
+
+def role_of(code: str) -> str:
+    return ROLE_LETTERS.get(code[5:6], "dadi")
+
+
+def R(c: dict) -> dict:
+    return ROLES[c.get("role", "dadi")]
+
+
+def new_code(hour: int, rng: random.Random | None = None, role: str = "dadi") -> str:
+    """A fresh scenario code: the hour band, four characters of seed, then a letter for anyone but Dadi."""
     pick = rng or secrets.SystemRandom()
     tail = str(pick.randrange(5)) + "".join(pick.choice(string.ascii_uppercase) for _ in range(3))
-    return f"{hour_band(hour)}{tail}"
+    letter = next((k for k, v in ROLE_LETTERS.items() if v == role), "")
+    return f"{hour_band(hour)}{tail}{letter}"
 
 
 def generate(code: str) -> dict:
-    """Build one coherent grandmother from a scenario code. Same code, same person."""
+    """Build one coherent person from a scenario code. Same code, same person."""
     rng = random.Random(f"dadi-{code}")
     band = int(code[0]) if code[:1].isdigit() and int(code[0]) < 5 else 4
+    if role_of(code) == "didi":
+        return _generate_didi(code, band, rng)
+    if role_of(code) == "dadaji":
+        return _generate_dadaji(code, band, rng)
     c = {"code": code, "band": band}
     c["name"], c["name_hi"] = rng.choice(NAMES)
     c["age"] = rng.randint(70, 86)
@@ -245,6 +479,33 @@ def generate(code: str) -> dict:
     return validate(c, rng)
 
 
+def _generate_didi(code: str, band: int, rng: random.Random) -> dict:
+    c = {"code": code, "band": band, "role": "didi", "name": "Pinky", "name_hi": "पिंकी", "age": rng.randint(19, 23)}
+    c["situation"] = rng.choice(sorted(k for k, s in PINKY_SITUATIONS.items() if band in s["bands"]))
+    c["temperament"] = rng.choice(sorted(PINKY_TEMPERAMENTS))
+    c["traits"] = rng.sample(sorted(PINKY_TRAITS), rng.choice([1, 2, 2]))
+    s = PINKY_SITUATIONS[c["situation"]]
+    c["social"] = rng.choice(s["social"])
+    c["mood"] = rng.choice(s["moods"])
+    c["hearing"], c["phone"] = "fine", "savvy"
+    return validate(c, rng)
+
+
+def _generate_dadaji(code: str, band: int, rng: random.Random) -> dict:
+    c = {"code": code, "band": band, "role": "dadaji"}
+    c["name"], c["name_hi"] = rng.choice(DADAJI_NAMES)
+    c["age"] = rng.randint(72, 86)
+    c["situation"] = rng.choice(sorted(k for k, s in DADAJI_SITUATIONS.items() if band in s["bands"]))
+    c["temperament"] = rng.choice(sorted(DADAJI_TEMPERAMENTS))
+    c["traits"] = rng.sample(sorted(DADAJI_TRAITS), rng.choice([1, 2, 2]))
+    s = DADAJI_SITUATIONS[c["situation"]]
+    c["social"] = rng.choice(s["social"])
+    c["mood"] = rng.choice(s["moods"])
+    c["hearing"] = "weak" if rng.random() < 0.3 else "fine"
+    c["phone"] = rng.choice(sorted(PHONES))
+    return validate(c, rng)
+
+
 def preset(**parts) -> dict:
     """A fixed character through the same machinery, for the staged demo."""
     c = {"code": "DEMO", "band": 3, "name": "Kamla", "name_hi": "कमला", "age": 78, "situation": "chai",
@@ -255,6 +516,10 @@ def preset(**parts) -> dict:
 
 # Each rule finds a clash and fixes the part that's out of place.
 def _rules(c: dict) -> list[tuple[str, callable]]:
+    if c.get("role") == "didi":
+        return _didi_rules(c)
+    if c.get("role") == "dadaji":
+        return _dadaji_rules(c)
     s = SITUATIONS[c["situation"]]
     return [
         ("social fits the situation", lambda: c["social"] in s["social"],
@@ -285,8 +550,40 @@ def _rules(c: dict) -> list[tuple[str, callable]]:
     ]
 
 
+def _didi_rules(c: dict) -> list[tuple[str, callable]]:
+    s = PINKY_SITUATIONS[c["situation"]]
+    return [
+        ("social fits the situation", lambda: c["social"] in s["social"], lambda rng: c.update(social=rng.choice(s["social"]))),
+        ("mood fits the situation", lambda: c["mood"] in s["moods"], lambda rng: c.update(mood=rng.choice(s["moods"]))),
+        ("a sceptic isn't a pushover too", lambda: not (c["temperament"] == "savvy" and "people_pleaser" in c["traits"]),
+         lambda rng: _swap_trait(c, "people_pleaser", rng)),
+        ("a laid-back girl isn't rushed by every deadline", lambda: not (c["temperament"] == "chill" and "fomo" in c["traits"]),
+         lambda rng: _swap_trait(c, "fomo", rng)),
+        ("a laid-back girl isn't already worried", lambda: not (c["temperament"] == "chill" and c["mood"] == "worried"),
+         lambda rng: c.update(mood=rng.choice([m for m in s["moods"] if m != "worried"] or ["content"]))),
+        ("no duplicate traits", lambda: len(set(c["traits"])) == len(c["traits"]), lambda rng: c.update(traits=sorted(set(c["traits"])))),
+    ]
+
+
+def _dadaji_rules(c: dict) -> list[tuple[str, callable]]:
+    s = DADAJI_SITUATIONS[c["situation"]]
+    return [
+        ("social fits the situation", lambda: c["social"] in s["social"], lambda rng: c.update(social=rng.choice(s["social"]))),
+        ("mood fits the situation", lambda: c["mood"] in s["moods"], lambda rng: c.update(mood=rng.choice(s["moods"]))),
+        ("an anxious man isn't hardened by rushing", lambda: not (c["temperament"] == "fretful" and "stubborn" in c["traits"]),
+         lambda rng: _swap_trait(c, "stubborn", rng)),
+        ("anxiety and pension worry overlap; keep them distinct", lambda: not (c["temperament"] == "fretful" and "pension_worry" in c["traits"]),
+         lambda rng: _swap_trait(c, "pension_worry", rng)),
+        ("a grumpy man isn't won over by respect", lambda: not (c["temperament"] == "grumpy" and "respect" in c["traits"]),
+         lambda rng: _swap_trait(c, "respect", rng)),
+        ("a lonely talker isn't out with his friends", lambda: not (c["temperament"] == "storyteller" and c["social"] == "friends_park"),
+         lambda rng: c.update(temperament=rng.choice(["veteran", "stickler", "fretful"]))),
+        ("no duplicate traits", lambda: len(set(c["traits"])) == len(c["traits"]), lambda rng: c.update(traits=sorted(set(c["traits"])))),
+    ]
+
+
 def _swap_trait(c: dict, bad: str, rng: random.Random) -> None:
-    options = sorted(set(TRAITS) - set(c["traits"]) - {bad})
+    options = sorted(set(R(c)["traits"]) - set(c["traits"]) - {bad})
     c["traits"] = [t if t != bad else rng.choice(options) for t in c["traits"]]
 
 
@@ -307,8 +604,10 @@ def validate(c: dict, rng: random.Random) -> dict:
 def mechanics(c: dict) -> dict:
     """The numbers the engine plays by. Weights are normalised, so a character
     changes *what* works on her, not how easy she is overall."""
-    parts = [SITUATIONS[c["situation"]], TEMPERAMENTS[c["temperament"]], SOCIAL[c["social"]], MOODS[c["mood"]],
-             *[TRAITS[t] for t in c["traits"]]]
+    role = R(c)
+    TR = role["traits"]
+    parts = [role["situations"][c["situation"]], role["temperaments"][c["temperament"]], role["social"][c["social"]], MOODS[c["mood"]],
+             *[TR[t] for t in c["traits"]]]
     weights = {t: 1.0 for t in TACTICS}
     heat = {t: 0 for t in TACTICS}
     for part in parts:
@@ -321,8 +620,13 @@ def mechanics(c: dict) -> dict:
     mean = sum(weights.values()) / len(weights)
     weights = {t: round(min(1.8, max(0.45, w / mean)), 2) for t, w in weights.items()}
 
-    # Pappu can only take the phone if he's actually there.
-    effects = ["hold", "shout", "callback", "decoy"] + (["pappu"] if c["social"] == "grandson" else [])
+    # Pappu can only take the phone if he's actually there. Pinky reads fine and hears fine.
+    if c.get("role") == "didi":
+        effects = ["hold", "callback"]
+    elif c.get("role") == "dadaji":
+        effects = ["hold", "shout", "callback"]
+    else:
+        effects = ["hold", "shout", "callback", "decoy"] + (["pappu"] if c["social"] == "grandson" else [])
     bias =[e for part in parts + [HEARING[c["hearing"]]] for e in part.get("effects", []) if e in effects]
     return {
         "weights": weights, "heat": heat,
@@ -333,12 +637,22 @@ def mechanics(c: dict) -> dict:
         "start": min(20, sum(part.get("start", 0) for part in parts)),     # suspicion when she picks up
         "ask": PHONES[c["phone"]]["ask"],
         "effects": effects, "bias": bias,
-        "first": next((TRAITS[t]["first"] for t in c["traits"] if "first" in TRAITS[t]), None),
-        "trap": max([TRAITS[t].get("trap", 0.5) for t in c["traits"]] or [0.5]),
-        "contradiction": sum(TRAITS[t].get("contradiction", 0) for t in c["traits"]),
-        "calm": sum(TRAITS[t].get("calm", 0) for t in c["traits"]),
-        "soft_repeat": next((TRAITS[t]["soft_repeat"] for t in c["traits"] if "soft_repeat" in TRAITS[t]), None),
-        "words": TEMPERAMENTS[c["temperament"]]["words"],
+        "first": next((TR[t]["first"] for t in c["traits"] if "first" in TR[t]), None),
+        "trap": max([TR[t].get("trap", 0.5) for t in c["traits"]] or [0.5]),
+        # Dadaji always notices a changed detail; it's who he is.
+        "contradiction": sum(TR[t].get("contradiction", 0) for t in c["traits"]) + (8 if c.get("role") == "dadaji" else 0),
+        "calm": sum(TR[t].get("calm", 0) for t in c["traits"]),
+        "soft_repeat": next((TR[t]["soft_repeat"] for t in c["traits"] if "soft_repeat" in TR[t]), None),
+        "words": role["temperaments"][c["temperament"]]["words"],
+        # The reasons behind her counter-moves (see Game.eligible_counters).
+        "holds": c["situation"] in ("kitchen", "searching") or c["temperament"] == "scatter" or bool(role["situations"][c["situation"]].get("holds")),
+        "squints": c.get("role", "dadi") == "dadi" and (c["situation"] == "searching" or c["temperament"] == "scatter"),
+        "hears_badly": c["hearing"] == "weak" or c["situation"] == "nap" or bool(role["situations"][c["situation"]].get("noisy")),
+        "tests_story": "memory" in c["traits"] or c["temperament"] in ("curious", "sceptic") or any(p.get("tests_story") for p in parts)
+                       or c.get("role") == "dadaji",
+        "checks_authority": "verifier" in c["traits"] or any(p.get("checks_authority") for p in parts),
+        "voice": role["voice"], "model": role["model"], "audio": role["audio"],
+        "notices_flattery": c.get("role") == "didi",  # a second compliment buys much less from Pinky
     }
 
 
@@ -356,36 +670,47 @@ DISLIKES = {
 }
 
 
+TITLES = {"dadi": ("दादी", "Dadi"), "didi": ("दीदी", "Didi"), "dadaji": ("दादाजी", "Dadaji")}
+
+
 def display_name(c: dict, lang: str) -> str:
-    return f"{c['name_hi']} दादी" if lang == "hi" else f"{c['name']} Dadi"
+    hi, en = TITLES[c.get("role", "dadi")]
+    return f"{c['name_hi']} {hi}" if lang == "hi" else f"{c['name']} {en}"
 
 
 def describe(c: dict, lang: str, friends: dict, pappu: str) -> str:
     """Who she is today, for the LLM. Traits are described as behaviour, never named."""
-    s, t = SITUATIONS[c["situation"]], TEMPERAMENTS[c["temperament"]]
-    about = [s["voice"].format(**friends), SOCIAL[c["social"]]["voice"].format(pappu=pappu), MOODS[c["mood"]]["voice"],
-             HEARING[c["hearing"]]["voice"], PHONES[c["phone"]]["voice"]]
-    return (f"You are {display_name(c, lang)}, {c['age']}. About her: {' '.join(b for b in about if b)} "
+    role = R(c)
+    s, t = role["situations"][c["situation"]], role["temperaments"][c["temperament"]]
+    about = [s["voice"].format(**friends), role["social"][c["social"]]["voice"].format(pappu=pappu), MOODS[c["mood"]]["voice"],
+             HEARING[c["hearing"]]["voice"], "" if c.get("role") == "didi" else PHONES[c["phone"]]["voice"]]
+    dislike = DISLIKES[min(c['weights'], key=c['weights'].get)]
+    if c.get("role") == "didi":
+        dislike = dislike.replace("her family", "her friends")
+    me = (c["name_hi"] if lang == "hi" else c["name"]) if c.get("role") == "didi" else display_name(c, lang)  # "Didi" is what others call her
+    text = (f"You are {me}, {c['age']}. About her: {' '.join(b for b in about if b)} "
             f"Personality: {t['voice']} Her habit: she {t['habit']}. "
-            f"How to play her: {' '.join(TRAITS[x]['cue'] for x in c['traits'])} "
-            f"{LIKES[max(c['weights'], key=c['weights'].get)]} {DISLIKES[min(c['weights'], key=c['weights'].get)]} "
+            f"How to play her: {' '.join(role['traits'][x]['cue'] for x in c['traits'])} "
+            f"{LIKES[max(c['weights'], key=c['weights'].get)]} {dislike} "
             "Show these in how you react to each line, never by stating them.")
+    return gender.masc(text) if c.get("role") == "dadaji" else text
 
 
 def reveal(c: dict) -> dict:
     """After the call: who she was, and the clue behind each part of her."""
-    s, t = SITUATIONS[c["situation"]], TEMPERAMENTS[c["temperament"]]
+    role = R(c)
+    s, t = role["situations"][c["situation"]], role["temperaments"][c["temperament"]]
     mood = MOODS[c["mood"]]["reveal"]
-    scene = f"{s['label'].capitalize()}, {SOCIAL[c['social']]['reveal']}" + (f", {mood}" if mood else "") + "."
+    scene = f"{s['label'].capitalize()}, {role['social'][c['social']]['reveal']}" + (f", {mood}" if mood else "") + "."
     return {
-        "name": f"{c['name']} Dadi", "age": c["age"], "scene": scene,
+        "name": display_name(c, "en"), "age": c["age"], "scene": scene, "role": c.get("role", "dadi"),
         "temperament": {"label": t["label"].capitalize(), "tell": t["tell"]},
-        "traits": [{"reveal": TRAITS[x]["reveal"], "tell": TRAITS[x]["tell"]} for x in c["traits"]],
+        "traits": [{"reveal": role["traits"][x]["reveal"], "tell": role["traits"][x]["tell"]} for x in c["traits"]],
         "works": max(c["weights"], key=c["weights"].get), "fails": min(c["weights"], key=c["weights"].get),
     }
 
 
 def debug(c: dict) -> dict:
-    keys = ["code", "name", "age", "situation", "temperament", "traits", "social", "mood", "hearing", "phone",
+    keys = ["code", "role", "name", "age", "situation", "temperament", "traits", "social", "mood", "hearing", "phone",
             "weights", "dislikes", "heat", "pace", "start", "ask", "effects", "bias", "first", "trap", "contradiction", "calm", "words"]
-    return {k: c[k] for k in keys}
+    return {k: c.get(k, "dadi" if k == "role" else None) for k in keys}

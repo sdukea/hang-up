@@ -81,6 +81,8 @@ And something is always going on in her day: a parcel she's waiting for, a stran
 
 Nothing tells you any of this. You work her out from how she talks, and what lands or backfires changes from call to call. After the call, **Who picked up** reveals who she really was and the clue behind each trait, so next time you spot it sooner.
 
+Get your first OTP and someone else in the family starts picking up: **Pinky Didi**, a college student voiced by Gnani's Zahira. She's a different puzzle. Officials get her attention, and then she checks. Flattery gets noticed, and she'll put you on hold to look you up. She has her own day too: a job offer that's too good, an exam form due tonight, a refund she's waiting on. Crack three different Dadis and **Dadaji** picks up: a retired government clerk, voiced by Gnani's Prakash on Timbre v3.0. He keeps a diary. He wants reference numbers and the proper channel, reads your own claims back to you, and checks your story twice. A story that holds up earns his trust; one changed detail and he has you. Once someone new has answered, anyone you've unlocked could pick up next.
+
 ## The playbook
 
 Six real tactics. Boss teaches each one, and Dadi teaches how to beat it. Use the same trick twice and she notices.
@@ -159,7 +161,7 @@ Then **your run**, moment by moment: what each move did to her trust and suspici
 | Part | What it does |
 |---|---|
 | **Gnani Prisma v3.0** | Hears you live. Its partial transcripts drive the captions and Dadi's mid-sentence cut-off |
-| **Gnani Timbre v2.5** | Voices Dadi and Pappu, and reads your own words back. Streamed for live replies, pre-recorded for instant lines |
+| **Gnani Timbre v2.5 and v3.0** | Voices Dadi (Chitra), Pinky (Zahira), Dadaji (Prakash, v3.0) and Pappu, and reads your own words back. Streamed for live replies, pre-recorded for instant lines |
 | **LLM** (Gemini in our build) | Scores your moves and writes Dadi's replies. Any OpenAI-compatible API works, so Gnani's open-weights Evon can be swapped in |
 | **Game engine** | Keeps the rules and digits on the server. The model is never told the OTP, and any reply containing digits is thrown out |
 | **Stack** | FastAPI and plain JavaScript, with no accounts and no database |

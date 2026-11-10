@@ -26,8 +26,20 @@ TEMPER = {
     "proud": "Nobody gives her orders. Pressure only made her stubborn.",
     "curious": "She kept asking questions, and pressure gave her more to ask about.",
     "lonely": "She wanted company. Threats made her sad and alert, not scared.",
+    "savvy": "She'd been waiting for proof, and pressure without proof made her check you.",
+    "busy": "She wanted it quick, not heavy. Pressure just made her impatient.",
+    "ambitious": "She was there for the opportunity, not for threats.",
+    "anxious": "It scared her at first, then she wanted her friends, not more pressure.",
+    "chill": "She's hard to rattle. Pressure bounced off and made her laugh at you.",
+    "stickler": "He wanted procedure and proof. Pressure without paperwork made him check you.",
+    "veteran": "He's proud of his service. Being pushed around by a caller only offended him.",
+    "grumpy": "He wanted facts, fast. Pressure without facts just annoyed him.",
+    "fretful": "Money fears rattled him at first, then he wanted answers, not more fear.",
+    "storyteller": "He wanted someone to talk to. Threats made him wary, not scared.",
 }
-TOPICS = {"delivery": "the parcel she was waiting for", "strange_sms": "the message she got that morning", "pension": "her missing pension"}
+TOPICS = {"delivery": "the parcel she was waiting for", "strange_sms": "the message she got that morning", "pension": "her missing pension",
+          "job_offer": "the internship she was waiting on", "exam_form": "her scholarship form", "refund": "her pending refund",
+          "kyc": "the bank's KYC letter", "electricity": "his electricity bill"}
 
 
 def _moves(g):
@@ -100,6 +112,11 @@ def candidates(g) -> list[dict]:
             f"You tied your story to {TOPICS[g.scene.key]}, and it landed harder than anything else you said.",
             "Scammers build their story around what you're already worried about.",
             "You used her worry again.")
+    if g.outcome == "timeout":
+        add("ran_out", 50, "She out-lasted you",
+            f"Your story never quite landed, and the clock ran out with {g.digits} of 4 digits.",
+            "Real callers drag calls out on purpose. The longer you stay on, the more the pressure works. Hang up.",
+            "Out-lasted again.")
     if g.outcome == "cracked":
         best = max((e for e in moves if e.get("tactic") in LABEL and e.get("tactic") != "ask"), key=lambda e: e.get("trust", 0), default=None)
         if best and best["tactic"] in PRESSURE:  # the win came from pressure, not trust
@@ -140,6 +157,8 @@ def _next(g, main) -> str:
     t = main["type"]
     if t in ("pressure_backfired", "ignored_resistance", "repetition"):
         return "Could you get through without raising the pressure at all?"
+    if t == "ran_out":
+        return "Can you build the story faster next time?"
     if t in ("asked_too_soon",):
         return "How few lines does it take to build a story she believes?"
     if t in ("trust_first", "pressure_worked", "isolation", "hooked", "adapted"):

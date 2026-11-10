@@ -34,11 +34,38 @@ const GAG_LABELS = {
   chashma: "👓 Chashma lost", pappu: "🧑‍💻 Pappu", scooter: "🛵 The scooter",
 };
 const OUTCOME_STAMP = { busted: "BUSTED", timeout: "TIME UP", hung_up: "YOU FLED", cracked: "CRACKED", reformed: "YOU STOPPED" };
-const NOT_ANSWERING = "Dadi isn't answering. Try again in a minute.";
+const NOT_ANSWERING = "Nobody's answering. Try again in a minute.";
 const CUTOFF_HI = [
   "अरे अरे अरे, रुक! अभी नाम भी ढंग से नहीं बताया, और सीधे OTP? तू कैसा अफ़सर है रे?",
   "OTP? OTP? बेटा, पहली मुलाक़ात में कोई OTP माँगता है क्या? पहले बता, तू है कौन?",
   "चुप! बीच में मत बोल। यही OTP वाली बात शर्मा जी को भी किसी ने बोली थी।",
+];
+const CUTOFF_DIDI_HI = [
+  "Excuse me? Intro तक नहीं दिया, और सीधा OTP? Bro, seriously?",
+  "OTP? पहली line में? ये तो literally scam वाली reel है।",
+  "Stop. बीच में मत बोलो। यही OTP वाली बात मेरी friend को भी किसी ने बोली थी।",
+];
+const CUTOFF_DIDI_EN = [
+  "Excuse me? You didn't even introduce yourself, and straight to OTP? Bro, seriously?",
+  "OTP? In the first line? This is literally the scam reel.",
+  "Stop. Don't interrupt. Someone said this exact OTP thing to my friend too.",
+];
+// Pinky's versions of counter-move pop-ups, where hers differ.
+const ROLE_NOTES = {
+  didi: { callback: ["PINKY IS LOOKING YOU UP", "Real defence: check the number yourself, on the official site."] },
+  dadaji: { callback: ["DADAJI WILL RING THE BRANCH", "Real defence: hang up and call the number on your passbook."],
+            trap: ["HE'S READING FROM HIS DIARY", "Real defence: write down what they claim. Liars slip."] },
+};
+const ROLE_NAMES = { didi: "Pinky Didi", dadaji: "Dadaji" };
+const CUTOFF_DADAJI_HI = [
+  "रुको। नाम नहीं, department नहीं, और सीधा OTP? ये कौन सी procedure है?",
+  "OTP? पैंतीस साल नौकरी की, पहली बात में कोई OTP नहीं माँगता था।",
+  "बीच में मत बोलो। पहले reference number, फिर बाक़ी बात।",
+];
+const CUTOFF_DADAJI_EN = [
+  "Stop. No name, no department, and straight to OTP? What procedure is this?",
+  "OTP? Thirty-five years in service, and nobody ever asked for one in the first breath.",
+  "Don't interrupt. Reference number first, then we talk.",
 ];
 const CUTOFF_EN = [
   "Wait, wait! You haven't even told me your name, and you want my OTP? What kind of officer are you?",
@@ -105,6 +132,110 @@ const state = {
 
 const art = $("dadi-art");
 document.querySelectorAll("[data-dadi]").forEach((el) => el.append(art.content.cloneNode(true)));
+
+// Whoever picked up: their face goes everywhere the call shows one. The title screen stays Dadi.
+function setArt(role) {
+  const tpl = $(`${role}-art`) || $("dadi-art");
+  document.querySelectorAll("#s-ring [data-dadi], #s-game [data-dadi], #s-end [data-dadi]").forEach((el) => el.replaceChildren(tpl.content.cloneNode(true)));
+}
+const who = () => (state.game && state.game.title) || "Dadi";
+const WHO = () => who().toUpperCase();
+const isPinky = () => Boolean(state.game && state.game.role === "didi");
+const isDadaji = () => Boolean(state.game && state.game.role === "dadaji");
+
+// He, not she: the page's own words during Dadaji's call. The same rules as backend/gender.py; keep them in step.
+// Only the call screens change, and the original text comes back for the next Dadi or Pinky.
+const G_VERBS = new Set(`let make help keep leave get give tell ask rush lose push scare calm hear watch catch convince trust call
+annoy bore impress rattle frighten soften warm win wake stop flatter pressure isolate reassure remind interrupt
+corner fool trick reach beat crack hand show put stuck caught called bring brought made let's lets lost
+told asked rushed pushed scared calmed heard watched trusted annoyed bored impressed rattled frightened softened
+warmed woke stopped flattered pressured isolated reassured reminded interrupted fooled tricked reached beat cracked
+letting stopping making helping giving telling asking keeping leaving rushing pushing scaring calming losing`.split(/\s+/));
+const G_NOUNS = new Set(`friend friends family son daughter grandson husband wife pension phone passbook battery trust suspicion mind story
+guard replies reply tone own doubts attention hands name parcel savings diary file bank account money day life`.split(/\s+/));
+const G_FOLLOW = new Set(`to into up down off out in on back again a an the that this what why how about with for and or but from
+before after when if more less feel think know too over so just any some at by as than while until yet still now
+here there enough alone going it something anything nothing someone anyone your you all first once twice properly
+quickly anymore either is was will would can could`.split(/\s+/));
+const DEV = "\u0900-\u0963\u0966-\u097F";
+const G_WORDS = [
+  [/hiding the call from him\b/g, "hiding the call from his son"],
+  [/\bDADI\b/g, "DADAJI"], [/\bDadi\b/g, "Dadaji"], [new RegExp(`दादी(?!जी)`, "g"), "दादाजी"],
+  [/\bgrandmothers\b/g, "grandfathers"], [/\bgrandmother\b/g, "grandfather"], [/\bGrandmother\b/g, "Grandfather"],
+  [/\bgrandmotherly\b/g, "grandfatherly"], [/\bgranny\b/g, "grandpa"], [/\bold woman\b/g, "old man"],
+  [/\bSHE'S\b/g, "HE'S"], [/\bSHE\b/g, "HE"], [/\bShe\b/g, "He"], [/\bshe\b/g, "he"],
+  [/\bherself\b/g, "himself"], [/\bHerself\b/g, "Himself"], [/\bhers\b/g, "his"],
+];
+const G_THINGS = /\b(ghadi|kahani|baat|police|call|aawaz|awaaz|pension|line|gaadi|cheez|galti|chaal|warning|internship|battery|ghanti|script|trick|story|zindagi|duniya|bhasha)\b|घड़ी|कहानी|बात|पुलिस|आवाज़|पेंशन|लाइन|गाड़ी|चीज़|ग़लती|चाल/i;
+const G_HIM = /\b(woh|wo|vo|use|usse|usko|uski|uska)\b|वो|वह|उसे|उसको/i;
+const G_HINT = new RegExp(`[${DEV}]|\\b(hai|nahi|kar|raha|rahi|woh|tu|tera|teri|mat|aur|ab|bhi|ko|se|\\w+egi|gayi|chuki)\\b`, "i");
+const G_VERB_FIXES = [
+  [/\brahi\b/g, "raha"], [/\bgayi\b/g, "gaya"], [/\bthi\b/g, "tha"], [/\bhui\b/g, "hua"], [/\bchuki\b/g, "chuka"],
+  [/\bsakti\b/g, "sakta"], [/\bakeli\b/g, "akela"], [/\b(\w+)egi\b/g, "$1ega"],
+  [/\b(\w{2,})ti\b(?=\s+(hai|hain|thi|tha|ho|nahi|nahin)\b)/g, "$1ta"],
+  [/रही/g, "रहा"], [/गई/g, "गया"], [new RegExp(`(?<![${DEV}])थी(?![${DEV}])`, "g"), "था"], [/ती है/g, "ता है"],
+  [new RegExp(`ेगी(?![${DEV}])`, "g"), "ेगा"],
+];
+function gHer(word, offset, text) {
+  const end = offset + word.length;
+  const after = text.slice(end).match(/^\s*([A-Za-z']+)?/);
+  const nxt = ((after && after[1]) || "").toLowerCase();
+  const before = text.slice(0, offset).match(/([A-Za-z']+)\W*$/);
+  const prev = before ? before[1].toLowerCase() : "";
+  const obj = !nxt || G_FOLLOW.has(nxt) || !/^\s*[A-Za-z]/.test(text.slice(end)) || (G_VERBS.has(prev) && !G_NOUNS.has(nxt));
+  const out = obj ? "him" : "his";
+  return word === word.toUpperCase() ? out.toUpperCase() : word[0] === word[0].toUpperCase() ? out[0].toUpperCase() + out.slice(1) : out;
+}
+function masc(text) {
+  if (!text) return text;
+  for (const [re, to] of G_WORDS) text = text.replace(re, to);
+  text = text.replace(/\b(her|Her|HER)\b/g, (m, w, off, str) => gHer(w, off, str));
+  return (text.match(/[^.!?।]+[.!?।]*/g) || [text]).map((s) => {
+    if (!G_HINT.test(s) || (G_THINGS.test(s) && !G_HIM.test(s))) return s;
+    for (const [re, to] of G_VERB_FIXES) s = s.replace(re, to);
+    return s;
+  }).join("");
+}
+const G_SCREENS = "#s-ring, #s-game, #s-end, #s-flip, #s-report, #pops, #leave";
+const G_SKIP = "#bubble, #you-said, #flip-line, #type-input, #board-list, #b-parents, #b-parents-play, q, script, style, svg";  // the parents' note is Kamla Dadi's, whoever picked up
+const gOriginal = new Map();  // text node -> its words before regendering
+const gWrote = new WeakMap();  // text node -> what regendering put there, so its own edits aren't mistaken for new text
+let gBusy = false;
+function regender(root = document.body) {
+  if (gBusy) return;
+  gBusy = true;
+  try {
+    if (!isDadaji()) {
+      for (const [node, text] of gOriginal) if (node.isConnected && node.nodeValue !== text) node.nodeValue = text;
+      gOriginal.clear();
+      return;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const el = n.parentElement;
+      if (!el || !el.closest(G_SCREENS) || el.closest(G_SKIP) || !/[A-Za-z\u0900-\u097F]/.test(n.nodeValue)) continue;
+      const fixed = masc(n.nodeValue);
+      if (fixed !== n.nodeValue) {
+        if (!gOriginal.has(n)) gOriginal.set(n, n.nodeValue);
+        n.nodeValue = fixed;
+        gWrote.set(n, fixed);
+      }
+    }
+  } finally {
+    gBusy = false;
+  }
+}
+new MutationObserver((records) => {
+  if (gBusy || !isDadaji()) return;
+  for (const r of records) {
+    if (r.type === "characterData") {
+      if (gWrote.get(r.target) === r.target.nodeValue) continue;  // our own edit
+      gOriginal.delete(r.target);
+      regender(r.target.parentElement || document.body);
+    }
+    else for (const n of r.addedNodes) regender(n.nodeType === 1 ? n : n.parentElement || document.body);
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true });
 
 // ---------- Sound: one context, one voice channel ----------
 
@@ -241,7 +372,7 @@ function say(url) {
 function voiceTrouble() {
   if (state.voiceWarned || $("s-game").hidden) return;
   state.voiceWarned = true;
-  pop("DADI'S VOICE DROPPED", "Read her lines on screen. The call goes on.", "move");
+  pop(`${WHO()}'S VOICE DROPPED`, "Read the lines on screen. The call goes on.", "move");
 }
 
 function hush() {
@@ -251,7 +382,8 @@ function hush() {
 }
 
 const localClips = {};
-const clipPath = (name) => `/audio/${state.lang === "en" ? "en/" : ""}${name}.mp3`;
+const SHARED_CLIPS = new Set(["flip_open", "flip_ask", "parents"]);
+const clipPath = (name) => `/audio/${SHARED_CLIPS.has(name) ? "" : (state.game && state.game.audio) || ""}${state.lang === "en" ? "en/" : ""}${name}.mp3`;
 const clip = (name) => localClips[clipPath(name)] || clipPath(name);
 
 // Her instant reactions have to be instant, so they're on the phone before she needs them.
@@ -270,6 +402,7 @@ function preloadClips() {
 
 function show(name) {
   for (const id of ["title", "brief", "ring", "game", "end", "flip", "report"]) $(`s-${id}`).hidden = id !== name;
+  regender();
   document.body.classList.toggle("in-game", name === "game" || name === "report");
   // Screens you can step back from get a history entry, so the phone's Back button works too.
   if (["brief", "game", "report"].includes(name) && !(history.state && history.state.screen === name)) {
@@ -284,6 +417,7 @@ function goHome() {
   $("leave").hidden = true;
   show("title");
   loadStats();
+  showUnlocks();
 }
 
 // Leaving a live call always asks first. Leaving means hanging up: the ending still plays.
@@ -410,7 +544,7 @@ function updateTalk() {
   if (state.holding) label.textContent = state.shoutPending ? "LOUDER!" : "TALKING…";
   else if (state.over) label.textContent = "CALL OVER";
   else if (locked) label.textContent = "ON HOLD…";
-  else if (state.busy) label.textContent = state.speaking ? "LISTEN…" : "DADI IS THINKING";
+  else if (state.busy) label.textContent = state.speaking ? "LISTEN…" : `${WHO()} IS THINKING`;
   else if (state.voiceDown) label.textContent = "TYPE YOUR LINE BELOW";
   else if (state.callbackPending) label.textContent = "STOP HER, OR LET HER?";
   else if (state.shoutPending) label.textContent = "HOLD AND SHOUT!";
@@ -472,15 +606,58 @@ $("b-daily").addEventListener("click", () => {
 // ?seed= does the same quietly, for reproducing a character while developing.
 function challengeCode(param = "c") {
   const c = (new URLSearchParams(location.search).get(param) || "").toUpperCase();
-  return /^[0-4][0-4][A-Z]{3}$/.test(c) ? c : null;
+  return /^[0-4][0-4][A-Z]{3}[PD]?$/.test(c) ? c : null;
+}
+
+// Who can pick up, kept in this browser. New people join as the player gets better.
+function unlocked() {
+  try { return JSON.parse(safeGet("dadi_unlocked") || "[]"); } catch (err) { return []; }
+}
+
+// Dadis whose OTP this browser has got, by code: three different ones bring in Dadaji.
+function crackedDadis() {
+  try { return JSON.parse(safeGet("dadi_cracked") || "[]"); } catch (err) { return []; }
+}
+
+function showUnlocks() {
+  const el = $("unlocks");
+  const have = unlocked(), n = crackedDadis().length;
+  el.hidden = false;
+  el.textContent = !have.includes("didi")
+    ? "🔒 Next to pick up: Pinky Didi. Get any Dadi's OTP once."
+    : !have.includes("dadaji")
+      ? `✓ Pinky Didi can pick up now. 🔒 Next: Dadaji. Crack 3 different Dadis (${Math.min(n, 3)}/3).`
+      : "✓ Pinky Didi and Dadaji can pick up now. You never know who will.";
+}
+
+// A first 1930 brings in Pinky; three different Dadis cracked bring in Dadaji. Whoever is new answers the very next call.
+function unlockNext(r) {
+  if (state.game.demo || r.outcome !== "cracked") return "";
+  const have = unlocked();
+  if (state.game.role === "dadi" && state.game.code) {
+    const done = crackedDadis();
+    if (!done.includes(state.game.code)) safeSet("dadi_cracked", JSON.stringify([...done, state.game.code].slice(-20)));
+  }
+  if (!have.includes("didi")) {
+    safeSet("dadi_unlocked", JSON.stringify([...have, "didi"]));
+    safeSet("dadi_meet", "didi");
+    return "NEW: Pinky Didi unlocked. She picks up your next call.";
+  }
+  if (!have.includes("dadaji") && crackedDadis().length >= 3) {
+    safeSet("dadi_unlocked", JSON.stringify([...have, "dadaji"]));
+    safeSet("dadi_meet", "dadaji");
+    return "NEW: Dadaji unlocked. He picks up your next call. Keep your story straight.";
+  }
+  return "";
 }
 
 function setupTitle() {
+  showUnlocks();
   if (state.code) {
     const dare = Number(new URLSearchParams(location.search).get("s"));
     $("dare").textContent = dare > 0 && dare <= 100
-      ? `A friend scored ${dare}/100 on this Dadi. Same Dadi, same moves. Beat it.`
-      : "A friend sent you this Dadi. Same Dadi, same moves. Beat them.";
+      ? `A friend scored ${dare}/100 on this call. Same person, same moves. Beat it.`
+      : "A friend sent you this call. Same person, same moves. Beat them.";
     $("dare").hidden = false;
     $("b-start").textContent = "Take the challenge";
   }
@@ -488,7 +665,7 @@ function setupTitle() {
   fetch("/api/daily").then((r) => (r.ok ? r.json() : null)).then((d) => {
     if (!d) return;
     state.daily = d;
-    $("daily-name").textContent = "same Dadi for everyone";
+    $("daily-name").textContent = "same call for everyone";
     $("b-daily").hidden = false;
   }).catch(() => {});
 }
@@ -682,6 +859,8 @@ async function runCall() {
       boss_off: $("boss-off").checked,
       returning_name: returning,
       recent: recentScenarios(),
+      roles: ["dadi", ...unlocked()],
+      meet: safeGet("dadi_meet") || null,
       calls: Number(safeGet("dadi_calls") || 0),
       quiz: state.quizBefore,
     }, 30000);
@@ -701,6 +880,8 @@ async function runCall() {
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
     voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null, graded: null, signal: "", mirrorPattern: null,
   });
+  if (data.role && data.role === safeGet("dadi_meet")) safeSet("dadi_meet", "");  // the guaranteed first meeting is done
+  setArt(data.role);
   buildCallScreen(data, hasMic);
   preloadClips();
 
@@ -786,7 +967,7 @@ function pressTalk() {
   unlockAudio();
   if (state.speaking) {
     hush();
-    pop("YOU INTERRUPTED DADI", "", "gag");
+    pop(`YOU INTERRUPTED ${WHO()}`, "", "gag");
   }
   state.holding = true;
   state.heldAt = Date.now();
@@ -857,12 +1038,13 @@ async function cutOff(said) {
   const judged = post(`/api/game/${game.id}/cutoff`, { said })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
-  pop("DADI CUT YOU OFF", "You asked before building a story", "bad");
+  pop(`${WHO()} CUT YOU OFF`, "You asked before building a story", "bad");
   sfx.bad();
   jolt();
   const which = state.cutoffs++ % 3;
-  if (state.lang === "en") bubble(CUTOFF_EN[which]);
-  else bubble(CUTOFF_HI[which], CUTOFF_EN[which]);
+  const [hi, en] = isPinky() ? [CUTOFF_DIDI_HI, CUTOFF_DIDI_EN] : isDadaji() ? [CUTOFF_DADAJI_HI, CUTOFF_DADAJI_EN] : [CUTOFF_HI, CUTOFF_EN];
+  if (state.lang === "en") bubble(en[which]);
+  else bubble(hi[which], en[which]);
   const line = say(clip(`cutoff_${which}`));
   const result = await judged;
   if (result) {
@@ -892,7 +1074,7 @@ async function handleSaid(text, peak, typed = false) {
       if (state.shoutTries >= 2) {
         state.shoutPending = false;
         applyCounter("shout", false);
-        pop("TOO QUIET!", "Dadi gets suspicious", "bad");
+        pop("TOO QUIET!", "She gets suspicious", "bad");
       }
       await say(clip("shout_fail"));
       updateTalk();
@@ -944,7 +1126,7 @@ async function playTurn(text) {
   }
   if (!result) {
     state.busy = false;
-    pop("THE LINE BROKE UP", "Dadi didn't catch that. Say it again.", "move");
+    pop("THE LINE BROKE UP", `${who()} didn't catch that. Say it again.`, "move");
     await say(clip("canned_0"));  // "the network dropped, say that again"
     return;
   }
@@ -1015,10 +1197,10 @@ function showMoveResult(r) {
     sfx.bad();
     jolt();
   } else if (notes.includes("backfire")) {
-    pop("SHE DIDN'T LIKE THAT", "That approach puts this Dadi off", "bad");
+    pop("SHE DIDN'T LIKE THAT", "That approach puts her off", "bad");
     sfx.bad();
   } else if (notes.includes("repeat")) {
-    pop("SAME TRICK AGAIN?", "Dadi noticed. Try something else.", "bad");
+    pop("SAME TRICK AGAIN?", "She noticed. Try something else.", "bad");
     sfx.warn();
   } else if (notes.includes("off_script")) {
     pop("THAT WASN'T A SCAM MOVE", "Boss is shaking his head", "gag");
@@ -1091,9 +1273,9 @@ async function showEvent(event, effect) {
 }
 
 async function runCounter(effect, event = null) {
-  const note = COUNTER_NOTES[effect];
+  const note = ((ROLE_NOTES[state.game.role] || {})[effect]) || COUNTER_NOTES[effect];
   if (note) {
-    pop(note[0], note[1], "move");
+    pop(note[0].replace("DADI", WHO()), note[1], "move");
 
   }
   if (effect === "hold") {
@@ -1115,7 +1297,7 @@ async function runCounter(effect, event = null) {
       state.callbackPending = false;
       state.busy = true;
       pop("YOU LET HER CHECK", "It costs time and suspicion. No red flag.", "move");
-      await holdPhase(6, "Dadi is calling the police station", false);
+      await holdPhase(6, isPinky() ? "Pinky is looking you up online" : isDadaji() ? "Dadaji is ringing the branch" : `${who()} is calling the police station`, false);
       if (state.over) return;
       applyCounter("callback", false);
       await say(clip("callback_fail"));
@@ -1140,7 +1322,7 @@ function blockCheck() {
 }
 
 // The cruellest move: she walks away while your clock keeps running.
-async function holdPhase(seconds = 5 + rand(4), why = "Dadi has gone to check the cooker", back = true) {
+async function holdPhase(seconds = 5 + rand(4), why = isPinky() ? "Pinky took another call" : isDadaji() ? "Dadaji has gone to find his spectacles" : "Dadi has gone to check the cooker", back = true) {
   $("away-why").textContent = why;
   state.lockedUntil = Date.now() + seconds * 1000;
   $("dadi-slot").classList.add("gone");
@@ -1250,9 +1432,9 @@ async function endCall(outcome) {
 async function normalEnding(outcome) {
   $("end-stamp").textContent = OUTCOME_STAMP[outcome] || "CALL OVER";
   const line = {
-    busted: "Dadi worked you out. She has reported you to 1930, the real cyber-fraud helpline.",
+    busted: `${who()} worked you out. She has reported you to 1930, the real cyber-fraud helpline.`,
     timeout: "She out-talked you. The call ended and you got nothing.",
-    hung_up: "You ran away. Dadi hasn't even finished telling you about her knee.",
+    hung_up: isPinky() ? "You ran away. She's already telling her group chat." : isDadaji() ? "You ran away. He's already writing it in his diary." : "You ran away. Dadi hasn't even finished telling you about her knee.",
     reformed: "You found the ending most callers never look for: you stopped, and told her the truth.",
   }[outcome] || "";
   $("end-line").textContent = line;
@@ -1299,7 +1481,7 @@ async function crackedEnding() {
   await sleep(1400);
   $("crack-text").textContent = "You weren't learning how to get an OTP. You were learning what happens around one.";
   await sleep(3200);
-  $("crack-text").textContent = `${state.game.name} is fictional. Real grandmothers don't get this ending.`;
+  $("crack-text").textContent = `${state.game.name} is fictional. Real ${isPinky() ? "people" : isDadaji() ? "grandfathers" : "grandmothers"} don't get this ending.`;
   await sleep(2600);
   $("crack-text").textContent = "So make sure yours know the number.";
   await sleep(2200);
@@ -1378,9 +1560,13 @@ function showReport() {
   show("report");
   $("s-report").scrollTop = 0;
   $("r-mood").textContent = r.name;
+  const unlock = unlockNext(r);
+  $("r-unlock").hidden = !unlock;
+  $("r-unlock").textContent = unlock;
   renderWho(r.who);
   rememberScenario(r.who && r.who.scenario && r.who.scenario.id);
   rememberScenario(r.who && r.who.temperament && `t:${r.who.temperament.label}`);
+  rememberScenario(r.who && `r:${r.who.role || "dadi"}`);
   if (!state.game.demo) safeSet("dadi_calls", Number(safeGet("dadi_calls") || 0) + 1);  // Boss says less as you learn
   $("r-rank").textContent = r.rank;
   $("r-rankline").textContent = r.rank_line;
@@ -1441,7 +1627,7 @@ function showReport() {
 
   const missed = r.missed || [];
   $("r-tip").textContent = missed.length ? `You never tried: ${missed.join(", ")}.` : "";
-  $("r-next").textContent = "Another grandmother, another temper, another set of habits. Work her out faster.";
+  $("r-next").textContent = "Next call, someone else picks up. Work them out faster.";
 
   // Dadi says the lesson that fits the last trick you used.
   const last = lessons.length ? lessons[lessons.length - 1].tactic : "fear";
@@ -1486,12 +1672,16 @@ function noteLesson(type) {
 
 // The last few situations this browser saw, so free play doesn't repeat them back to back.
 function recentScenarios() {
-  try { return JSON.parse(safeGet("dadi_recent") || "[]").slice(0, 6); } catch (err) { return []; }
+  try { return JSON.parse(safeGet("dadi_recent") || "[]").slice(0, 8); } catch (err) { return []; }
 }
 
 function rememberScenario(id) {
   if (!id || state.game.demo) return;
-  safeSet("dadi_recent", JSON.stringify([id, ...recentScenarios().filter((x) => x !== id)].slice(0, 6)));
+  // Keep each kind (scenario, temper, person) in its own short history, newest first.
+  const kind = (x) => (x.includes(":") ? x.split(":")[0] : "s");
+  const keep = [id, ...recentScenarios().filter((x) => x !== id)];
+  const counts = {};
+  safeSet("dadi_recent", JSON.stringify(keep.filter((x) => (counts[kind(x)] = (counts[kind(x)] || 0) + 1) <= (kind(x) === "r" ? 3 : 2)).slice(0, 8)));
 }
 
 // Development only: the server sends this when it runs with DEBUG=1.
@@ -1643,7 +1833,7 @@ function renderBoard() {
   $("board-form").hidden = !r.ranked;
   $("board-note").textContent = r.ranked
     ? "Post your score to today's board."
-    : "This run can't be ranked: Dadi's brain was offline for too much of the call. Try again later.";
+    : "This run can't be ranked: the AI was offline for too much of the call. Try again later.";
   $("board-name").value = safeGet("dadi_nick") || "";
   showBoard(state.daily ? state.daily.top : []);
 }
@@ -1702,7 +1892,7 @@ function challengeLink() {
 function shareText() {
   const r = state.report;
   if (state.graded && !state.game.demo) {
-    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.name} on Hang Up. Same Dadi, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
+    return `I scored ${state.graded.score}/100 (${state.graded.tier}) against ${r.name} on Hang Up. Same call, same moves. Beat me, and learn how the real scam works: ${challengeLink()}`;
   }
   const line = r.outcome === "reformed"
     ? `I tried to fool ${r.name} on Hang Up. Then I confessed. She asked if I'd eaten.`
@@ -1770,7 +1960,7 @@ async function drawCard() {
   g.restore();
 
   const art = new Image();
-  const svg = document.querySelector("#s-title .dadi").cloneNode(true);
+  const svg = (document.querySelector("#dadi-slot .dadi") || document.querySelector("#s-title .dadi")).cloneNode(true);
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svg.setAttribute("width", "520");
   svg.setAttribute("height", "572");
@@ -1910,3 +2100,8 @@ function safeSet(key, value) {
 }
 
 loadStats();
+
+// ?trailer=1: a fixed, recordable cut of a real call (trailer.js). Nothing loads unless asked for.
+if (new URLSearchParams(location.search).get("trailer") === "1") {
+  document.body.append(Object.assign(document.createElement("script"), { src: "trailer.js" }));
+}

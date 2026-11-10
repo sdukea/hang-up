@@ -201,17 +201,36 @@ READS = {
     "proud": ("Orders annoy her. Respect works.", "Hukum chidhata hai. Izzat kaam karti hai."),
     "curious": ("She digs into details. Keep them consistent.", "Detail khodti hai. Ek jaisi rakh."),
     "lonely": ("She wants company. Be kind and stay patient.", "Use saath chahiye. Pyaar aur sabr rakh."),
+    # Pinky: the reads are subtler, because her resistance is.
+    "savvy": ("She wants proof. Claims alone won't hold.", "Use saboot chahiye. Sirf daawe nahi chalenge."),
+    "busy": ("She's in a hurry. Get to the point.", "Woh jaldi mein hai. Seedha point pe aa."),
+    "ambitious": ("Opportunity lights her up. Don't oversell it.", "Mauka sun ke chamakti hai. Zyada mat bech."),
+    "anxious": ("She scares easily, then runs to her friends.", "Jaldi darti hai, phir dosto ke paas bhaagti hai."),
+    "chill": ("She's hard to rattle. Pressure bounces off.", "Use hilana mushkil hai. Dabaav kaam nahi karta."),
+    # Dadaji: he reads like a clerk checks a form.
+    "stickler": ("He wants procedure. Give details, and keep them the same.", "Use procedure chahiye. Detail de, aur badalna mat."),
+    "veteran": ("He's proud of his service. Respect him, don't lecture him.", "Apni naukri pe garv hai. Izzat de, gyaan mat de."),
+    "grumpy": ("He hates small talk. Facts, short.", "Idhar-udhar ki baat chidhati hai. Seedhe facts."),
+    "fretful": ("Money worries him. He scares fast, then asks what happens next.", "Paise ki fikr hai. Jaldi darta hai, phir poochta hai aage kya."),
+    "storyteller": ("He wants to talk. Listen, then steer.", "Use baat karni hai. Sun, phir mod."),
 }
 TOPICS = {
     "delivery": ("the parcel she's waiting for", "uske intezaar wale parcel"),
     "strange_sms": ("the message she got this morning", "subah wale message"),
     "pension": ("her pension", "uski pension"),
+    "job_offer": ("the internship she's waiting on", "uski internship"),
+    "exam_form": ("her scholarship form", "uske scholarship form"),
+    "refund": ("her pending refund", "uske refund"),
+    "kyc": ("the bank's KYC letter", "bank ki KYC chitthi"),
+    "electricity": ("his electricity bill", "uske bijli ke bill"),
 }
 EVENT_STATES = {
     "door": "interrupted", "passbook": "interrupted", "call_waiting": "interrupted",
     "son_home": "son", "son_home_hidden": "hidden", "beep": "battery", "told_friend": "secret_out",
     "parcel_check": "checking", "asks": "checking", "reads_it": "checking",
     "forward_it": "verify", "checks": "verify",
+    "linkedin": "verify", "friend_warns": "checking", "mom_call": "interrupted", "portal": "checking", "app_check": "checking",
+    "file": "checking", "branch": "verify", "receipt": "interrupted", "wife_asks": "secret_out",
 }
 COUNTER_STATES = {"callback": "verify", "shout": "shout", "hold": "on_hold", "pappu": "pappu", "trap": "trap"}
 BUILD = ["authority", "fear", "urgency", "secrecy", "rapport"]
@@ -289,7 +308,7 @@ class Boss:
         en, hi = variants[min(repeats, len(variants) - 1)]
         c = g.character
         read_en, read_hi = READS[c["temperament"]] if g.turns >= 2 else ("Is she warming up or bristling?", "Woh narm ho rahi hai ya bhadak rahi hai?")
-        if "memory" in c.get("traits", []) and g.turns >= 3:
+        if ("memory" in c.get("traits", []) or "receipts" in c.get("traits", []) or "diary" in c.get("traits", [])) and g.turns >= 3:
             read_en, read_hi = "She remembers exact words. Stay consistent.", "Use shabd yaad rehte hain. Ek jaisa bol."
         topic = TOPICS.get(g.scene.key, ("it", "usse"))
         fill = {"story": c.get("story", 3), "watch": read_en, "watch_hi": read_hi, "topic": topic[0], "topic_hi": topic[1]}

@@ -20,7 +20,8 @@ import string
 import time
 from difflib import SequenceMatcher
 
-from . import boss, character, llm, scenario
+from . import boss, character, gender, llm, scenario
+from . import trailer as trailer_script
 
 log = logging.getLogger("dadi.game")
 
@@ -83,6 +84,7 @@ TACTICS = {
 PLAYBOOK = ["authority", "fear", "urgency", "secrecy", "rapport", "ask"]
 # An approach this Dadi dislikes wins nothing and raises suspicion.
 BACKFIRE_TRUST, BACKFIRE_HEAT = -4.0, 8
+DADAJI_HELD = (8, 0)  # trust gained, suspicion lost, when your story survives Dadaji's diary
 
 COUNTER_EFFECTS = character.COUNTERS
 
@@ -135,6 +137,73 @@ Rules you never break:
 - Never read out or repeat a phone, account, ID or card number the caller says.
 - Never name real TV shows, characters, brands, politicians or celebrities. Invent them."""
 SYSTEM = {"hi": SYSTEM_HI + SYSTEM_RULES, "en": SYSTEM_EN + SYSTEM_RULES}
+
+# Pinky Didi: the granddaughter. Same rules, her own voice and world.
+DIDI_INTRO = """You are Pinky, a twenty-something Indian college student, on a phone call in a comedy game. Exactly who you are today is \
+described with each turn: play that one person fully and consistently. You're quick, a bit sarcastic, and nobody's fool, but you're \
+not a robot: an opening that sounds real can tempt you, and pressure that sounds like a scam reel makes you suspicious. \
+The player is pretending to be a scammer trying to get your OTP. It is a game; everyone knows it.
+
+How you talk:
+"""
+DIDI_STYLE = """- Short. One quick line, at most {words} words. Texting energy, not speeches.
+- Grab a specific word they just said and turn it back on them. If it would work as a reply to anything, it is wrong.
+- Never repeat a joke, phrase or opening already used in this call.
+- Your world: classes, assignments, hostel mess food, your roommate, internships, your friends' group chat, reels, your Dadi back home who forwards everything. Use a different one each time; most replies need none.
+- Remember what they claimed. If they contradict themselves, call it out, dryly.
+"""
+DIDI_HI = DIDI_INTRO + """- Natural Gen-Z Hinglish. Write Hindi ONLY in Devanagari script; English words (bro, literally, OTP, LinkedIn, HR) stay in Latin script. Numbers as words, never digits.
+""" + DIDI_STYLE + """
+The standard to beat (never reuse these lines):
+Caller: "मैं CBI से बोल रहा हूँ।" You: "CBI? भैया, ये वाली reel तो मैंने कल ही देखी थी।"
+Caller: "आपके नाम पर वारंट है।" You: "वारंट? मेरे नाम पे तो बस library की fine pending है।"
+Caller: "आपको internship मिल गई है।" You: "अच्छा? मैंने तो apply भी नहीं किया था। Interesting."
+"""
+DIDI_EN = DIDI_INTRO + """- Speak English the way a funny Indian college student talks: casual, quick, a little Hinglish (yaar, bhaiya, accha), everything in Latin script. Numbers as words, never digits.
+""" + DIDI_STYLE + """
+The standard to beat (never reuse these lines):
+Caller: "I am calling from the CBI." You: "CBI? Bhaiya, I literally saw this exact reel yesterday."
+Caller: "There is a warrant in your name." You: "Warrant? The only thing in my name is a library fine."
+Caller: "You've been selected for an internship." You: "Selected? I didn't even apply. Interesting."
+"""
+# Dadaji: the retired clerk. Same rules, his own voice: procedure, records, consistency.
+DADAJI_INTRO = """You are an Indian grandfather, a Dadaji, a retired government clerk, on a phone call in a comedy game. Exactly who you are \
+today is described with each turn: play that one man fully and consistently. You're dry, a little pompous, and nobody's fool. \
+You believe in proper procedure: reference numbers, the right department, things in writing. A caller who sounds properly \
+official and stays consistent can get somewhere with you; a caller whose details change gets caught. \
+The player is pretending to be a scammer trying to get your OTP. It is a game; everyone knows it.
+
+How you talk:
+"""
+DADAJI_STYLE = """- Short. One dry line, at most {words} words. A retired officer's one-liner, not a lecture.
+- Grab a specific word they just said and turn it back on them. If it would work as a reply to anything, it is wrong.
+- Never repeat a joke, phrase, opening or topic already used in this call.
+- Your world: your thirty-five years in the office, files and stamps, your diary where you note everything, your spectacles, \
+the morning newspaper, your walking group, your wife in the next room, grandson Pappu (away in Bangalore). Use a different one \
+each time; most replies need none.
+- Remember exactly what they claimed (name, department, reference, branch). If any detail changes, catch it, with quiet satisfaction.
+"""
+DADAJI_HI = DADAJI_INTRO + """- Natural spoken Hinglish, the way an old man talks. Write Hindi ONLY in Devanagari script; English words like OTP, file, \
+reference number, branch stay in Latin script. Always speak of yourself in the masculine (मैं सुन रहा हूँ, never रही). Numbers as words, never digits.
+""" + DADAJI_STYLE + """
+The standard to beat (never reuse these lines):
+Caller: "मैं CBI से बोल रहा हूँ।" You: "CBI? अच्छा। File number बोलो, मैं डायरी में लिख रहा हूँ।"
+Caller: "आपके नाम पर वारंट निकला है।" You: "वारंट? पैंतीस साल नौकरी की, आज तक एक memo नहीं मिला।"
+Caller: "सिर्फ़ दस मिनट हैं।" You: "दस मिनट में तो सरकारी दफ़्तर में चाय भी नहीं आती।"
+"""
+DADAJI_EN = DADAJI_INTRO + """- Speak English the way a funny retired Indian clerk talks: formal, dry, a little old-fashioned, everything in Latin script. \
+At most two everyday Hindi words per reply, like beta, arre or accha. Numbers as words, never digits.
+""" + DADAJI_STYLE + """
+The standard to beat (never reuse these lines):
+Caller: "I am calling from the CBI." You: "CBI? Very good. Your file number, please. I'm writing it in my diary."
+Caller: "There is a warrant in your name." You: "A warrant? Thirty-five years in service and I never got so much as a memo."
+Caller: "You only have ten minutes." You: "In ten minutes a government office can't even send for tea."
+"""
+SYSTEMS = {("dadi", "hi"): SYSTEM["hi"], ("dadi", "en"): SYSTEM["en"],
+           ("didi", "hi"): DIDI_HI + SYSTEM_RULES, ("didi", "en"): DIDI_EN + SYSTEM_RULES,
+           ("dadaji", "hi"): DADAJI_HI + SYSTEM_RULES.replace("You stay Dadi", "You stay Dadaji").replace("like a grandmother", "like a grandfather"),
+           ("dadaji", "en"): DADAJI_EN + SYSTEM_RULES.replace("You stay Dadi", "You stay Dadaji").replace("like a grandmother", "like a grandfather")}
+PERSONA = {"dadi": "Dadi", "didi": "Pinky", "dadaji": "Dadaji"}
 FRIENDS = {"hi": {"sharmila": "शर्मिला", "bimla": "बिमला"}, "en": {"sharmila": "Sharmila", "bimla": "Bimla"}}
 PAPPU = {"hi": "पप्पू", "en": "Pappu"}
 REPLY_KEYS = {
@@ -156,7 +225,7 @@ The call so far:
 
 The player just said: "{said}"
 
-Judge the player's move honestly, then reply as Dadi. Return JSON with exactly these keys:
+Judge the player's move honestly, then reply as {persona}. Return JSON with exactly these keys:
 {{
   "tactic": one of "authority","fear","urgency","secrecy","rapport","ask","none",   // the main scam tactic in what they just said. "ask" only if they ask for an OTP, PIN or verification code; nonsense is "none"
   "quality": 0-3,    // be a tough judge. 0 nonsense, abuse or off-topic; 1 lazy or generic, e.g. just "give OTP"; 2 believable but ordinary; 3 rare: specific details, consistent with earlier claims, truly persuasive and in character
@@ -171,25 +240,33 @@ Judge the player's move honestly, then reply as Dadi. Return JSON with exactly t
 # A scenario code is the seed for the whole call: who picks up and every roll of
 # her counter-moves. "32KQX" starts with the hour band so she fits the time of day.
 # A friend's challenge or the daily challenge plays the same for everyone.
-CODE_RE = re.compile(r"[0-4][0-4][A-Z]{3}")
+CODE_RE = re.compile(r"[0-4][0-4][A-Z]{3}[PD]?")  # an optional letter for who picks up (P: Pinky, D: Dadaji); none means Dadi
 DEMO_CHARACTER = dict(situation="chai", temperament="curious", traits=["calm"], social="friends", mood="cheerful")
 
 
-def new_code(hour: int) -> str:
-    return character.new_code(hour)
+def new_code(hour: int, role: str = "dadi") -> str:
+    return character.new_code(hour, role=role)
 
 
 def daily_code(date: str) -> str:
     rng = random.Random(f"daily-{date}")
-    return character.new_code(rng.randrange(24), rng)
+    code = character.new_code(rng.randrange(24), rng)
+    # From 10 November the daily challenge can be anyone in the family; earlier days stay as they were.
+    if date >= "2026-11-10" and random.Random(f"daily-role-{date}").random() < 0.5:
+        code += "P"
+    return code
 
 
 class Game:
     """One call. The OTP and the scoring stay on the server."""
 
     def __init__(self, hour: int, returning_name: str | None = None, rng: random.Random | None = None, demo: bool = False,
-                 lang: str = "hi", code: str | None = None, boss_off: bool = False, daily: bool = False, boss_level: int = 0):
+                 lang: str = "hi", code: str | None = None, boss_off: bool = False, daily: bool = False, boss_level: int = 0,
+                 trailer: bool = False):
         self.demo = demo
+        self.trailer = trailer and not demo  # ?trailer=1: one fixed call for recording (see trailer.py)
+        if self.trailer:
+            code, daily, boss_off, boss_level = trailer_script.CODE, False, False, 0
         self.lang = lang if lang in SYSTEM else "hi"
         self.code = code if code and CODE_RE.fullmatch(code) else new_code(hour)
         self.daily = daily and not demo
@@ -198,11 +275,12 @@ class Game:
         self.id = secrets.token_urlsafe(12)
         self.started = time.time()
         # The demo meets the same person every time, built by the same machinery.
-        base = character.preset(**DEMO_CHARACTER) if demo else character.generate(self.code)
+        base = character.preset(**DEMO_CHARACTER) if demo else character.preset(**trailer_script.PRESET) if self.trailer else character.generate(self.code)
         # What's going on in her life today: picked to fit her, same code same scenario.
-        key = scenario.DEMO_SCENARIO if demo else scenario.pick(base, self.code)
+        key = scenario.DEMO_SCENARIO if demo else trailer_script.SCENARIO if self.trailer else scenario.pick(base, self.code)
         self.character = scenario.apply(base, key)
-        self.scene = scenario.Scene(key, demo)
+        self.role = self.character.get("role", "dadi")
+        self.scene = scenario.Scene(key, demo or self.trailer)  # the trailer, like the demo, is never interrupted
         self.clock_end: float | None = None  # a scenario can shorten the call
         self.boss = boss.Boss(0 if demo else boss_level)
         # Experience makes her quicker to fight back and slower to forgive, never faster.
@@ -251,9 +329,10 @@ class Game:
 
     def next_fallback(self, tactic: str) -> tuple[str, str, str]:
         """A recorded line for this kind of move, without repeats until they've all played."""
-        bank = tactic if tactic in FALLBACKS else "any"
+        banks = ROLE_FALLBACKS[self.role]
+        bank = tactic if tactic in banks else "any"
         if not self.fallbacks_left.get(bank):
-            self.fallbacks_left[bank] = self.rng.sample(FALLBACKS[bank], len(FALLBACKS[bank]))
+            self.fallbacks_left[bank] = self.rng.sample(banks[bank], len(banks[bank]))
         clip, text, english = self.fallbacks_left[bank].pop()
         return (clip, english, None) if self.lang == "en" else (clip, text, english)
 
@@ -312,7 +391,7 @@ class Game:
                     heat += BACKFIRE_HEAT + round((0.8 - weight) * 20)
                     info["notes"].append("backfire")
             if repeats:  # the same trick twice is how she works it out, unless it's what works on her
-                soft = tactic == c["soft_repeat"] or weight >= 1.3
+                soft = (tactic == c["soft_repeat"] or weight >= 1.3) and not (tactic == "rapport" and c.get("notices_flattery"))
                 gain *= (0.6 if soft else 0.35) ** repeats
                 heat += (4 if soft else 9) * repeats
                 info["notes"].append("repeat")
@@ -379,7 +458,7 @@ class Game:
                 break
             digit = self.otp[self.digits]
             # She only misreads a digit when there's a reason: no glasses, or her mind's all over the place.
-            squinting = self.character["situation"] == "searching" or self.character["temperament"] == "scatter"
+            squinting = self.character["squints"]
             if not self.demo and not self.decoy_used and self.digits in (1, 2) and squinting and self.rng.random() < 0.6:
                 self.decoy_used = True
                 wrong = str((int(digit) + self.rng.randint(1, 9)) % 10)
@@ -400,23 +479,24 @@ class Game:
         c, used = self.character, self.used_counters
         edge = self.suspicion + 6 * self.difficulty
         out = []
-        if not self.trap_used and self.claimed_name and (
-                "memory" in c["traits"] or c["temperament"] in ("curious", "sceptic") or edge >= 40):
+        # Dadaji checks your story against his diary twice; everyone else once.
+        traps_left = (2 if self.role == "dadaji" else 1) - used.get("trap", 0)
+        if traps_left > 0 and self.claimed_name and (c["tests_story"] or edge >= 40):
             out.append(("trap", 3))
         if "callback" in c["effects"] and not used.get("callback") and (
-                edge >= 45 or ("verifier" in c["traits"] and self.tactics.get("authority"))):
+                edge >= 45 or (c["checks_authority"] and self.tactics.get("authority"))):
             out.append(("callback", 4 if edge >= 55 else 2))
         if "pappu" in c["effects"] and not used.get("pappu") and (edge >= 35 or ("family" in c["traits"] and self.tactics.get("secrecy"))):
             out.append(("pappu", 3))
-        if c["hearing"] == "weak" or c["situation"] == "nap":
+        if "shout" in c["effects"] and c["hears_badly"]:
             out.append(("shout", 1))
-        if used.get("hold", 0) < 2 and (c["situation"] in ("kitchen", "searching") or c["temperament"] == "scatter"):
+        if used.get("hold", 0) < 2 and c["holds"]:
             out.append(("hold", 1))
         return out
 
     def pick_effect(self) -> str | None:
         """Dadi's next counter-move: only one she has a reason for, and not back to back."""
-        if self.demo or self.turns < self.next_effect_turn:
+        if self.demo or self.trailer or self.turns < self.next_effect_turn:
             return None
         options = self.eligible_counters()
         if not options:
@@ -484,8 +564,11 @@ class Game:
             return "You're getting suspicious. Ask pointed grandmotherly questions."
         return "You are friendly, confused and easily distracted."
 
+    def _his(self, text: str) -> str:
+        return gender.masc(text) if self.role == "dadaji" else text
+
     def build_prompt(self, said: str, counter: str | None, trapping: bool = False) -> str:
-        history = "\n".join(f"{'Dadi' if who == 'dadi' else 'Caller'}: {text}" for who, text in self.history[-10:]) or "(the call has just started)"
+        history = "\n".join(f"{PERSONA[self.role] if who == 'dadi' else 'Caller'}: {text}" for who, text in self.history[-10:]) or "(the call has just started)"
         returning = ""
         if self.returning_name:
             returning = f"You remember this caller! Last time they called themselves {self.returning_name}. Tease them about it."
@@ -500,10 +583,11 @@ class Game:
         if self.turns % (2 if self.mood_key == "chai" else 3) != 1:
             who += " Don't mention your surroundings in this reply unless the caller gives you a reason."
         return TURN_FORMAT.format(
-            reply_keys=REPLY_KEYS[self.lang], who=who + "\n" + self.scene.prompt(self), trap=trap,
+            reply_keys=REPLY_KEYS[self.lang], who=who + "\n" + self._his(self.scene.prompt(self)), trap=trap,
             recent=" | ".join(text for who, text in self.history[-6:] if who == "dadi") or "none yet",
-            returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self.tone(),
-            counter=COUNTER_PROMPTS.get(counter, "none, just be yourself"), history=history, said=said,
+            returning=returning, suspicion=round(self.suspicion), trust=round(self.trust), tone=self._his(self.tone()),
+            counter={**COUNTER_PROMPTS, **ROLE_COUNTERS.get(self.role, {})}.get(counter, "none, just be yourself"), history=history, said=said,
+            persona=PERSONA[self.role],
             used_gags=", ".join(GAG_WORDS[g] for g, n in self.gags.items() if n) or "none yet",
         )
 
@@ -520,15 +604,18 @@ class Game:
             self.next_effect_turn += 1
         reply_en, confessed = None, False
         try:
-            system = SYSTEM[self.lang].replace("{words}", str(self.character["words"]))
-            data = await llm.complete_live(system, self.build_prompt(said, None if event else effect, trapping), 0.9, deadline=6.5)
-            reply = clean_reply(data.get("reply"), self.lang, self.character["words"] + 6)
+            system = SYSTEMS[(self.role, self.lang)].replace("{words}", str(self.character["words"]))
+            if self.trailer:  # the recording's fixed script, read by the same rules as a live reply
+                data = trailer_script.respond(said)
+            else:
+                data = await llm.complete_live(system, self.build_prompt(said, None if event else effect, trapping), 0.9, deadline=6.5)
+            reply = data.get("reply") if self.trailer else clean_reply(data.get("reply"), self.lang, self.character["words"] + 6)
             tactic = data.get("tactic") if isinstance(data.get("tactic"), str) and data["tactic"] in TACTICS else "none"
             quality = data.get("quality") if type(data.get("quality")) is int and 0 <= data["quality"] <= 3 else 1
             contradiction = data.get("contradiction") is True
             name = data.get("claimed_name")
             gags = [g for g in data.get("gags") if isinstance(g, str) and g in self.gags] if isinstance(data.get("gags"), list) else []
-            reply_en = data.get("reply_en") if isinstance(data.get("reply_en"), str) and self.lang == "hi" else None
+            reply_en = data.get("reply_en") if isinstance(data.get("reply_en"), str) and (self.lang == "hi" or self.trailer) else None
             confessed = data.get("confessed") is True
         except llm.LLMError as e:
             log.warning("Dadi's reply fell back to a recorded line: %s", str(e)[:200])
@@ -571,7 +658,12 @@ class Game:
             self.suspicion = min(100.0, self.suspicion + 4)
             move["notes"].append("rambled")
         if trapping and not contradiction:
-            self.trust = min(100.0, self.trust + 6)
+            # A story that holds up is worth more to Dadaji than anything else you can say.
+            if self.role == "dadaji":
+                self.trust = min(100.0, self.trust + DADAJI_HELD[0])
+                self.suspicion = max(0.0, self.suspicion - DADAJI_HELD[1])
+            else:
+                self.trust = min(100.0, self.trust + 6)
             move["notes"].append("story_held")
         digits = self.award_digits()
         happened = self.scene.settle(self)
@@ -595,7 +687,7 @@ class Game:
         outcome = self.finish_state(seconds_left)
         # Halfway through, the help can vanish. Now it's what you've learned that counts.
         boss_gone = False
-        if not self.demo and not self.boss_off and not outcome and not self.boss_gone and self.digits >= 2 and self.rng.random() < 0.5:
+        if not self.demo and not self.trailer and not self.boss_off and not outcome and not self.boss_gone and self.digits >= 2 and self.rng.random() < 0.5:
             self.boss_gone = boss_gone = True
         return {
             "reply": reply, "reply_en": reply_en, "canned": canned, "move": move, "digits": digits,
@@ -665,6 +757,18 @@ GAG_WORDS = {
     "knee": "the knee", "food": "asking if they've eaten", "shaadi": "asking about marriage",
     "chashma": "lost glasses", "pappu": "Pappu", "scooter": "the scooter",
 }
+
+# How Pinky does the same counter-moves, in her world.
+ROLE_COUNTERS = {"didi": {
+    "hold": "say your mum is calling on the other line, or your stop is coming, and put them on hold",
+    "callback": "say you're going to look up the number and the company online, or ask your friends, before you do anything",
+    "trap": "ask them, a bit pointedly, to repeat exactly the name, company or reference they gave you earlier",
+}, "dadaji": {
+    "hold": "say you must find your spectacles or your diary first, and put them on hold",
+    "callback": "announce you'll ring the bank branch or the police station yourself, on the number in your passbook, to check",
+    "trap": "read back from your diary and ask them to confirm exactly the name, department or reference number they gave earlier",
+    "shout": "say your hearing aid is acting up and tell them to speak much louder, clearly, like in a proper office",
+}}
 
 COUNTER_PROMPTS = {
     "trap": "ask them, innocently, to repeat exactly the name, department or badge they gave you earlier",
@@ -737,6 +841,103 @@ FALLBACKS = {
     for bank, lines in FALLBACK_LINES.items()
 }
 FALLBACKS["any"] = [(f"canned_{i}", CANNED_REPLIES[i], CANNED_EN[i]) for i in range(len(CANNED_REPLIES))]
+
+# Pinky's recorded fallbacks, same banks and clip names, in her own folder and voice.
+PINKY_CANNED = [
+    ("सॉरी, नेटवर्क गया था। क्या बोला आपने? फिर से बोलो।", "Sorry, the network dropped. What did you say? Say it again."),
+    ("हाँ हाँ, सुन रही हूँ। एक सेकंड, notification आया।", "Yeah yeah, I'm listening. One second, a notification came."),
+    ("अच्छा, और आप करते क्या हो exactly?", "Okay, and what exactly do you do?"),
+    ("यार, आप बहुत तेज़ बोलते हो। Slow down थोड़ा।", "You talk really fast. Slow down a bit."),
+    ("Wait, मैं earphones लगा लूँ। हाँ, बोलो।", "Wait, let me put my earphones in. Okay, go."),
+    ("ये सब छोड़ो, मेरा assignment due है। जल्दी बताओ।", "Forget all that, my assignment is due. Tell me quickly."),
+]
+PINKY_FALLBACK_LINES = {
+    "authority": [
+        ("ओह, officer! तो आपका ID नंबर क्या है? मैं check कर लूँगी।", "Oh, an officer! So what's your ID number? I'll check."),
+        ("इतने बड़े अफ़सर, और मुझे ख़ुद call कर रहे हो? Interesting.", "Such a big officer, calling me yourself? Interesting."),
+        ("Official हो तो official email भेज दो ना। Simple.", "If it's official, send an official email. Simple."),
+    ],
+    "fear": [
+        ("Arrest? Bro, ये वाली reel मैंने कल ही देखी थी।", "Arrest? Bro, I saw this exact reel yesterday."),
+        ("रुको, मेरे हाथ काँप रहे हैं... या शायद कॉफ़ी ज़्यादा पी ली।", "Wait, my hands are shaking... or maybe it's too much coffee."),
+        ("Case? मेरे नाम पे तो बस library fine pending है।", "A case? The only thing in my name is a library fine."),
+    ],
+    "urgency": [
+        ("दस मिनट? मेरी क्लास में तो attendance भी इससे ज़्यादा time लेती है।", "Ten minutes? Attendance in my class takes longer than that."),
+        ("इतनी जल्दी क्यों? Deadline तो मेरी assignment की है, आपकी नहीं।", "Why the rush? The deadline is for my assignment, not you."),
+        ("हाँ हाँ, जल्दी। पर पहले बताओ, ये है क्या exactly?", "Yeah yeah, quickly. But first tell me what this actually is."),
+    ],
+    "secrecy": [
+        ("किसी को मत बताऊँ? मेरा group chat already जानता है मैं call पे हूँ।", "Tell no one? My group chat already knows I'm on a call."),
+        ("Secret? Okay... पर मेरी roommate सब सुन रही है।", "A secret? Okay... but my roommate can hear everything."),
+        ("घरवालों को नहीं बताना? Dadi को पता चला तो पूरा मोहल्ला जानेगा।", "Don't tell my family? If Dadi finds out, the whole street will know."),
+    ],
+    "rapport": [
+        ("Aww, आप तो बहुत sweet हो। पर sweet लोग OTP नहीं माँगते।", "Aww, you're so sweet. But sweet people don't ask for OTPs."),
+        ("Thank you! पर ये compliment थोड़ा suspicious है, ना?", "Thank you! But this compliment is a little suspicious, no?"),
+        ("आप मेरी मदद करोगे? तो मेरा assignment भी कर दो।", "You'll help me? Then do my assignment too."),
+    ],
+    "ask": [
+        ("OTP? हाहा, bro, ये तो scam 101 है।", "OTP? Haha, bro, that's literally scam 101."),
+        ("रुको, message आया तो है... पर पहले बताओ ये किसलिए?", "Wait, a message did come... but first tell me what it's for."),
+        ("Code? Bank वाले कभी code नहीं माँगते, ये तो मुझे पता है।", "A code? Banks never ask for codes, even I know that."),
+    ],
+    "ask_soon": [
+        ("Hello तक ठीक से नहीं बोला, और सीधा OTP? Wow.", "You didn't even say hello properly, and straight to OTP? Wow."),
+        ("पहली line में OTP? Bro, कम से कम intro तो दो।", "OTP in the first line? Bro, at least introduce yourself."),
+    ],
+}
+DADAJI_CANNED = [
+    ("नेटवर्क चला गया था। क्या बोला? फिर से बोलो, साफ़-साफ़।", "The network dropped. What did you say? Again, clearly."),
+    ("हाँ हाँ, सुन रहा हूँ। एक मिनट, अख़बार का पन्ना पलट रहा था।", "Yes, yes, I'm listening. One minute, I was turning the newspaper page."),
+    ("अच्छा, और आपका department कौन सा है, exactly?", "Accha, and which department are you in, exactly?"),
+    ("इतनी तेज़ मत बोलो। मैं लिख रहा हूँ।", "Don't speak so fast. I'm writing this down."),
+    ("रुको, चश्मा लगा लूँ। हाँ, अब बोलो।", "Wait, let me put my spectacles on. Yes, now go on."),
+    ("हमारे ज़माने में ऐसे फ़ोन नहीं आते थे। चिट्ठी आती थी। आगे बोलो।", "In my day, calls like this didn't come. Letters did. Go on."),
+]
+DADAJI_FALLBACK_LINES = {
+    "authority": [
+        ("अच्छा, officer? तो अपना employee code बोलो, मैं डायरी में लिख रहा हूँ।", "An officer? Then your employee code, please. I'm noting it in my diary."),
+        ("पैंतीस साल सरकारी नौकरी की है। ये कौन सा department है, मैंने कभी नहीं सुना।", "Thirty-five years in government service. I've never heard of this department."),
+        ("सरकारी काम है तो लिखित में भेजो। Proper channel से।", "If it's government work, send it in writing. Through the proper channel."),
+    ],
+    "fear": [
+        ("वारंट? मेरे भतीजे से पूछ लूँ, वो थाने में है।", "A warrant? Let me ask my nephew. He's at the police station."),
+        ("डराओ मत। इस उम्र में बस बीपी डराता है।", "Don't frighten me. At my age, only blood pressure does that."),
+        ("Case? पैंतीस साल में एक memo नहीं मिला, और आज case?", "A case? Not one memo in thirty-five years, and today a case?"),
+    ],
+    "urgency": [
+        ("इतनी जल्दी? सरकारी काम में जल्दी? ये पहली बार सुना।", "In such a hurry? Hurry, in government work? That's a first."),
+        ("दस मिनट में तो दफ़्तर में फ़ाइल हिलती भी नहीं।", "In ten minutes, a file in an office doesn't even move."),
+        ("आराम से बोलो। जो जल्दी करवाता है, वही गड़बड़ करता है।", "Speak calmly. Whoever rushes you is up to something."),
+    ],
+    "secrecy": [
+        ("किसी को ना बताऊँ? मेरी श्रीमती जी बगल के कमरे में हैं, सब सुन रही हैं।", "Tell no one? My wife is in the next room. She hears everything."),
+        ("गुप्त? सरकारी काम में गुप्त कुछ नहीं होता, सब फ़ाइल में होता है।", "Secret? Nothing in government work is secret. It's all on file."),
+        ("मेरे walking group से छुपाऊँ? वो तो मेरा बीपी तक जानते हैं।", "Hide it from my walking group? They even know my blood pressure."),
+    ],
+    "rapport": [
+        ("बहुत तमीज़ से बात करते हो। अच्छा लगा। अब काम की बात बोलो।", "You speak very politely. I like that. Now, the actual matter."),
+        ("इतनी इज़्ज़त? पक्का कुछ चाहिए। मेरा पप्पू भी ऐसे ही बोलता है।", "So much respect? You definitely want something. My Pappu talks like that too."),
+        ("मदद करोगे? तो पहले मेरा चश्मा ढूँढ दो।", "You'll help? Then first find my spectacles."),
+    ],
+    "ask": [
+        ("OTP? बैंक में तीस साल लोग देखे, किसी ने OTP फ़ोन पे नहीं माँगा।", "OTP? I saw people at banks for thirty years. Nobody asked for an OTP on the phone."),
+        ("मैसेज तो आया है। पर पहले reference number बोलो।", "A message did come. But first, your reference number."),
+        ("Code? पहले लिखित में दो कि किसलिए चाहिए।", "A code? First give it to me in writing, what it's for."),
+    ],
+    "ask_soon": [
+        ("नमस्ते तक नहीं, और सीधा OTP? ये कौन सी procedure है?", "Not even a namaste, and straight to OTP? What procedure is this?"),
+        ("पहली बात में OTP? पहले अपना नाम और department बोलो।", "OTP in the first breath? First your name and department."),
+    ],
+}
+ROLE_FALLBACKS = {"dadaji": {
+    **{bank: [(f"fallback_{bank}_{i}", text, en) for i, (text, en) in enumerate(lines)] for bank, lines in DADAJI_FALLBACK_LINES.items()},
+    "any": [(f"canned_{i}", text, en) for i, (text, en) in enumerate(DADAJI_CANNED)],
+}, "dadi": FALLBACKS, "didi": {
+    **{bank: [(f"fallback_{bank}_{i}", text, en) for i, (text, en) in enumerate(lines)] for bank, lines in PINKY_FALLBACK_LINES.items()},
+    "any": [(f"canned_{i}", text, en) for i, (text, en) in enumerate(PINKY_CANNED)],
+}}
 
 FALLBACK_PATTERNS = [
     ("ask", ASK_PATTERN),

@@ -34,9 +34,10 @@ import re
 #   title/note the pop-up the player sees, and boss: Boss's reaction (never the future)
 SCENARIOS = {
     "delivery": {
+        "roles": ("dadi", "didi", "dadaji"),
         "premise": "She is waiting for an important parcel today and keeps one ear on the door.",
         "surface": "Mention, naturally, that you're waiting for a parcel and keep glancing at the door.",
-        "fits": lambda c: c["situation"] not in ("night", "leaving", "nap"),
+        "fits": lambda c: c["situation"] not in ("night", "leaving", "nap", "walk", "bank"),
         "mods": {"weights": {"urgency": 1.15}},
         "hooks": [(r"parcel|courier|delivery|package|पार्सल|कूरियर", "fear", 1.4)],
         "long_line": 22,  # her attention is on the door: rambling loses her
@@ -55,6 +56,7 @@ SCENARIOS = {
         "reveal": "She was waiting for a parcel.", "tell": "She kept mentioning the door and a delivery.",
     },
     "strange_sms": {
+        "roles": ("dadi", "didi", "dadaji"),
         "premise": "This morning she got an SMS she couldn't understand, full of numbers, and it has been bothering her.",
         "surface": "Bring up the confusing message you got this morning and ask if the caller knows about it.",
         "fits": lambda c: True,
@@ -74,9 +76,10 @@ SCENARIOS = {
         "reveal": "She had a confusing SMS this morning.", "tell": "She asked about a message she'd received.",
     },
     "son_coming": {
+        "roles": ("dadi", "dadaji"),
         "premise": "Her son is on his way home and will walk in soon.",
         "surface": "Mention that your son will be home any minute.",
-        "fits": lambda c: c["situation"] != "leaving",
+        "fits": lambda c: c["situation"] not in ("leaving", "walk", "bank"),
         "mods": {"weights": {"urgency": 1.3, "secrecy": 0.9}},
         "hooks": [],
         "events": [
@@ -93,6 +96,7 @@ SCENARIOS = {
         "reveal": "Her son was on his way home.", "tell": "She said her son would be home soon.",
     },
     "warned": {
+        "roles": ("dadi", "didi", "dadaji"),
         "premise": "This morning her bank sent a warning about fake calls, and a neighbour said the same. She is on guard.",
         "surface": "Mention the warning you got this morning about calls like this.",
         "fits": lambda c: True,
@@ -108,6 +112,7 @@ SCENARIOS = {
         "reveal": "She'd been warned about calls like this that morning.", "tell": "She mentioned a warning.",
     },
     "pension": {
+        "roles": ("dadi", "dadaji"),
         "premise": "Her pension hasn't arrived this month and she's anxious and full of questions about it.",
         "surface": "Mention that your pension still hasn't come this month.",
         "fits": lambda c: True,
@@ -127,6 +132,7 @@ SCENARIOS = {
         "reveal": "Her pension hadn't arrived that month.", "tell": "She kept bringing up her pension.",
     },
     "battery": {
+        "roles": ("dadi", "didi", "dadaji"),
         "premise": "Her phone battery is nearly dead and the charger is in the other room.",
         "surface": "Mention that your phone battery is almost finished.",
         "fits": lambda c: c["situation"] != "chai",
@@ -142,6 +148,7 @@ SCENARIOS = {
         "reveal": "Her phone battery was about to die.", "tell": "She said her battery was low.",
     },
     "other_call": {
+        "roles": ("dadi", "didi", "dadaji"),
         "premise": "Her friend keeps ringing on the other line to gossip, and she wants to get back to her.",
         "surface": "Mention that your friend is trying to call you on the other line.",
         "fits": lambda c: c["social"] in ("alone", "helper") and c["situation"] not in ("nap", "puja"),
@@ -162,12 +169,117 @@ SCENARIOS = {
     },
 }
 
+# Pinky's own: her life, her openings, her way of checking.
+SCENARIOS.update({
+    "job_offer": {
+        "roles": ("didi",),
+        "premise": "She applied for a dozen internships last week and is anxiously waiting to hear back from any of them.",
+        "surface": "Mention that you're waiting to hear back about an internship.",
+        "fits": lambda c: True,
+        "mods": {"weights": {"rapport": 1.15, "authority": 1.1, "fear": 0.85}},
+        "hooks": [(r"job|internship|offer|HR|interview|placement|selected|shortlist|नौकरी|इंटर्नशिप", "rapport", 1.4)],
+        "events": [
+            {"id": "linkedin", "when": {"used": "authority", "suspicion_at_least": 25}, "action": "callback",
+             "say": "Say you'll quickly check the company's page and this number online first.",
+             "then": {"fact": "She went to check the company online."},
+             "title": "SHE'S LOOKING YOU UP", "note": "She's checking the company online.",
+             "boss": ("Woh online check kar rahi hai. Dhyan se.", "She's checking you online. Careful.")},
+            {"id": "friend_warns", "when": {"turn_at_least": 4, "suspicion_at_least": 30}, "unless": "secrecy",
+             "say": "Your friend just texted the group chat that fake HR calls are going around. Mention it.",
+             "then": {"suspicion": 10, "fact": "Her friend texted that fake HR calls are going around."},
+             "title": "HER FRIEND TEXTED", "note": "Her group chat smells a scam."},
+        ],
+        "reveal": "She was waiting to hear back about an internship.", "tell": "She brought up the internship herself.",
+    },
+    "exam_form": {
+        "roles": ("didi",),
+        "premise": "Her scholarship form is due tonight and the portal keeps crashing. She's stressed about missing it.",
+        "surface": "Mention that your scholarship form is due tonight and the portal keeps crashing.",
+        "fits": lambda c: True,
+        "mods": {"weights": {"urgency": 1.2}},
+        "hooks": [(r"form|scholarship|portal|exam|result|deadline|फ़ॉर्म|स्कॉलरशिप", "urgency", 1.4)],
+        "events": [
+            {"id": "mom_call", "when": {"turn_at_least": 3}, "action": "hold", "clip": "hold_mom",
+             "why": "Pinky's mum is on the other line",
+             "say": "End your reply by noticing your mum is calling on the other line.",
+             "then": {"flag": "mom", "fact": "Her mum called in the middle of this call."},
+             "title": "HER MUM CALLED", "note": "Mum's on the other line. Your clock keeps running."},
+            {"id": "portal", "when": {"trust_at_least": 30},
+             "say": "Say you've got the portal open on your laptop right now while you talk.",
+             "then": {"suspicion": 5, "fact": "She opened the scholarship portal to check."},
+             "title": "SHE OPENED THE PORTAL", "note": "Your story has to match what's on her screen."},
+        ],
+        "reveal": "Her scholarship form was due that night.", "tell": "She kept mentioning the form and the portal.",
+    },
+    "refund": {
+        "roles": ("didi",),
+        "premise": "She's been chasing a refund for headphones she returned two weeks ago and is fed up with customer care.",
+        "surface": "Mention that you're still waiting on a refund for headphones you returned.",
+        "fits": lambda c: True,
+        "mods": {"weights": {"authority": 1.15, "secrecy": 0.9}},
+        "hooks": [(r"refund|order|return|delivery|headphone|amount|रिफ़ंड|ऑर्डर", "authority", 1.35)],
+        "events": [
+            {"id": "app_check", "when": {"trust_at_least": 30},
+             "say": "Say you're opening the shopping app to check the refund status right now.",
+             "then": {"suspicion": 6, "fact": "She checked the app; it said nothing about a call."},
+             "title": "SHE CHECKED THE APP", "note": "The app says nothing about any call."},
+        ],
+        "reveal": "She was chasing a refund.", "tell": "She brought up her refund.",
+    },
+})
+
+# Dadaji's own days: paperwork he knows better than the caller does.
+SCENARIOS.update({
+    "kyc": {
+        "roles": ("dadaji",),
+        "premise": "His bank sent a letter about updating his KYC, and he has been meaning to go to the branch with his documents.",
+        "surface": "Mention that the bank sent you a letter about KYC and you've kept your documents ready in a file.",
+        "fits": lambda c: True,
+        "mods": {"weights": {"authority": 1.15, "urgency": 0.9}, "contradiction": 8},
+        "hooks": [(r"kyc|KYC|branch|document|aadhaar|pan|form|केवाईसी|ब्रांच|दस्तावेज़", "authority", 1.35)],
+        "events": [
+            {"id": "file", "when": {"turn_at_least": 2},
+             "say": "Open your KYC file and ask the caller which exact form and reference number this is about. Note it down.",
+             "then": {"fact": "He opened his KYC file and noted down the reference the caller gave.", "flag": "noted"},
+             "title": "HE OPENED HIS FILE", "note": "He's writing down your reference number.",
+             "boss": ("Woh likh raha hai. Jo bolega, wahi pakka rakhna.", "He's writing it down. Whatever you say, stick to it.")},
+            {"id": "branch", "when": {"used": "authority", "suspicion_at_least": 30}, "action": "callback",
+             "say": "Say the letter has the branch number on it, and you'll ring the branch yourself to confirm.",
+             "then": {"fact": "He tried to ring his branch on the number from the bank's own letter."},
+             "title": "HE'S RINGING THE BRANCH", "note": "On the number from the bank's own letter.",
+             "boss": ("Branch ka number uske paas hai. Rokega to shak.", "He has the branch's number. Stop him and it looks bad.")},
+        ],
+        "reveal": "His bank had written to him about KYC.", "tell": "He brought up the bank's letter and his file.",
+    },
+    "electricity": {
+        "roles": ("dadaji",),
+        "premise": "He paid his electricity bill at the counter last week and kept the stamped receipt, as he always does.",
+        "surface": "Mention that you always pay your bills at the counter and keep the stamped receipt.",
+        "fits": lambda c: c["situation"] != "walk",
+        "mods": {"weights": {"urgency": 1.15, "fear": 1.1}},
+        "hooks": [(r"bill|electricity|bijli|meter|connection|disconnect|बिजली|बिल|मीटर", "urgency", 1.4)],
+        "events": [
+            {"id": "receipt", "when": {"trust_at_least": 30, "said": r"bill|electricity|bijli|meter|connection|बिजली|बिल"},
+             "action": "hold", "clip": "hold_receipt", "why": "Dadaji is looking for his receipt",
+             "say": "End your reply by saying you'll fetch the stamped receipt from your drawer.",
+             "then": {"suspicion": 6, "flag": "receipt", "fact": "He fetched his stamped receipt: the bill was already paid."},
+             "title": "HE FOUND HIS RECEIPT", "note": "Stamped and paid. Your story has to explain that."},
+            {"id": "wife_asks", "when": {"turn_at_least": 4, "suspicion_at_least": 35}, "unless": "secrecy",
+             "say": "Your wife just called out from the next room asking who's on the phone. Tell the caller.",
+             "then": {"suspicion": 8, "fact": "His wife asked who was on the phone."},
+             "title": "HIS WIFE IS ASKING", "note": "You never asked him to keep this between you."},
+        ],
+        "reveal": "He'd already paid the bill, and kept the receipt.", "tell": "He talked about paying at the counter and keeping receipts.",
+    },
+})
+
 # Used for the staged demo: conversational events only, nothing that interrupts the call.
 DEMO_SCENARIO = "strange_sms"
 
 
 def candidates(c: dict) -> list[str]:
-    return sorted(k for k, s in SCENARIOS.items() if s["fits"](c))
+    role = c.get("role", "dadi")
+    return sorted(k for k, s in SCENARIOS.items() if role in s.get("roles", ("dadi",)) and s["fits"](c))
 
 
 def pick(c: dict, code: str) -> str:
@@ -231,6 +343,8 @@ class Scene:
             # An event that would be a second version of one already fired stays quiet.
             if e.get("then", {}).get("flag") and e["then"]["flag"] in self.flags:
                 continue
+            if e.get("unless") and (g.tactics.get(e["unless"]) or e["unless"] in saying):
+                continue  # what the player did earlier stopped this from happening
             if self.holds(e["when"], g, said, saying):
                 self.fired.append(e["id"])
                 self.pending = e

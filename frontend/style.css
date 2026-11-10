@@ -93,6 +93,8 @@ body {
   font: 700 16px var(--body); color: var(--cream); background: #3a0f7a; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink);
 }
 .daily-btn b { color: var(--gold); }
+.unlocks { margin: 10px 0 0; text-align: center; font-size: 14px; font-weight: 700; color: #e5d8fb; }
+.r-unlock { margin: 10px auto 0; padding: 8px 12px; max-width: 360px; font-weight: 800; line-height: 1.25; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 12px; }
 .fine { margin: 16px 4px 0; text-align: center; font-size: 13.5px; line-height: 1.25; color: #e5d8fb; }
 .fine b { color: #fff; }
 

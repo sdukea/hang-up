@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import character, config, game, scenario, scoring, tts
+from . import character, config, game, gender, scenario, scoring, tts
 from .storage import store
 from .stt import PrismaStream
 
@@ -40,7 +40,7 @@ FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 
 games: dict[str, game.Game] = {}
-speech: dict[str, tuple[str, float, str, str]] = {}  # token -> text, made at, voice, language
+speech: dict[str, tuple[str, float, str, str, str]] = {}  # token -> text, made at, voice, language, model
 _starts: dict[str, deque] = defaultdict(deque)
 _listen_sessions = 0
 stats = {
@@ -151,12 +151,35 @@ class Start(BaseModel):
     code: str | None = Field(default=None, max_length=8)   # a friend's challenge
     daily: bool = False
     boss_off: bool = False
-    recent: list[str] = Field(default_factory=list, max_length=6)  # scenarios this browser met lately
+    recent: list[str] = Field(default_factory=list, max_length=8)  # scenarios, tempers and people this browser met lately
+    roles: list[str] = Field(default_factory=lambda: ["dadi"], max_length=4)  # who this browser has unlocked
+    meet: str | None = Field(default=None, max_length=10)  # someone just unlocked: they answer next
     calls: int = Field(default=0, ge=0, le=100000)  # calls this browser has played: Boss says less as they learn
+    trailer: bool = False  # ?trailer=1: the fixed call for recording; never counted, saved or ranked
+
+
+SHARED_CLIPS = {"flip_open", "flip_ask", "parents"}  # the mirror caller and Dadi's note, whoever picked up
 
 
 def _audio(g: game.Game, clip: str) -> str:
-    return f"/audio/{'en/' if g.lang == 'en' else ''}{clip}.mp3"
+    folder = "" if clip in SHARED_CLIPS else g.character["audio"]
+    return f"/audio/{folder}{'en/' if g.lang == 'en' else ''}{clip}.mp3"
+
+
+def _his(g: game.Game, out):
+    """Dadaji's calls get he/him in everything the player reads. Nobody else's text is touched."""
+    return gender.masc_all(out) if g.role == "dadaji" else out
+
+
+def pick_role(body: "Start") -> str:
+    """Who picks up in free play. A newly unlocked person is guaranteed once; after that it's
+    a controlled choice among everyone unlocked, leaning away from whoever answered lately."""
+    allowed = ["dadi"] + [r for r in body.roles if r in character.ROLES and r != "dadi"]
+    if body.meet in allowed:
+        return body.meet
+    recent = [x[2:] for x in body.recent if x.startswith("r:")]
+    weights = [0.35 if recent[:2] == [r, r] else 0.7 if recent[:1] == [r] else 1.0 for r in allowed]
+    return random.choices(allowed, weights)[0]
 
 
 @app.post("/api/game/start")
@@ -171,32 +194,34 @@ async def start_game(body: Start, request: Request):
         raise HTTPException(status_code=429, detail="Dadi has gone for her nap. Try again in a while.")
     hits.append(now)
 
-    code = game.daily_code(today()) if body.daily else body.code
-    if not code and not body.demo:  # free play: don't hand them the same situation twice in a row
+    code = game.daily_code(today()) if body.daily and not body.trailer else body.code
+    if not code and not body.demo and not body.trailer:  # free play: who picks up, and not the same situation twice in a row
+        role = pick_role(body)
         for _ in range(12):
-            code = game.new_code(body.hour)
+            code = game.new_code(body.hour, role)
             c = character.generate(code)
-            temper = "t:" + character.TEMPERAMENTS[c["temperament"]]["label"].capitalize()  # as the report shows it
+            temper = "t:" + character.R(c)["temperaments"][c["temperament"]]["label"].capitalize()  # as the report shows it
             if scenario.pick(c, code) not in body.recent and temper not in body.recent:
                 break
     # A returning caller makes her warier, so shared scenarios ignore it to stay fair.
-    returning = None if body.demo or body.daily or body.code else body.returning_name
+    returning = None if body.demo or body.daily or body.code or body.trailer else body.returning_name
     g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily,
-                  boss_level=0 if body.calls < 3 else 1 if body.calls < 10 else 2)
+                  boss_level=0 if body.calls < 3 else 1 if body.calls < 10 else 2, trailer=body.trailer)
     games[g.id] = g
-    if body.quiz is not None and not g.demo:
+    if body.quiz is not None and not g.demo and not g.trailer:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
         stats["quiz_before"][1] += 1
         _stats_dirty = True
     greet = "greet_back" if g.returning_name else f"greet_{g.mood_key}_{0 if g.demo else random.randrange(2)}"
-    return {
+    return _his(g, {
         "id": g.id, "seconds": game.GAME_SECONDS, "mood": g.mood_key, "name": character.display_name(g.character, "en"), "greet": greet,
         "suspicion": round(g.suspicion), "boss": g.boss_hint(), "intel": g.intel(),
         "playbook": [{"id": t, "label": game.TACTICS[t]["label"]} for t in game.PLAYBOOK],
         "story_built": g.story_built, "demo": g.demo, "lang": g.lang,
         "code": g.code, "daily": g.daily, "boss_off": g.boss_off,
+        "role": g.role, "title": {"dadi": "Dadi", "didi": "Pinky", "dadaji": "Dadaji"}[g.role], "audio": g.character["audio"],
         **({"debug": character.debug(g.character)} if config.DEBUG else {}),
-    }
+    })
 
 
 class Turn(BaseModel):
@@ -213,11 +238,11 @@ async def play_turn(game_id: str, body: Turn):
         result["speech"] = None
     elif result["canned"] is None:
         token = f"{g.id}-{g.turns}"
-        speech[token] = (result["reply"], time.time(), config.DADI_VOICE, g.lang)
+        speech[token] = (result["reply"], time.time(), g.character["voice"], g.lang, g.character["model"])
         result["speech"] = f"/api/speech/{token}"
     else:
         result["speech"] = _audio(g, result["canned"])
-    return result
+    return _his(g, result)
 
 
 @app.get("/api/speech/{token}")
@@ -226,7 +251,7 @@ async def spoken_reply(token: str):
     item = speech.pop(token, None)
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
-    audio = tts.stream(item[0], config.TTS_LANGS[item[3]], voice=item[2], model=config.TTS_MODEL, speed=config.DADI_SPEED)
+    audio = tts.stream(item[0], config.TTS_LANGS[item[3]], voice=item[2], model=item[4], speed=config.DADI_SPEED)
     try:
         first = await anext(audio)
     except (tts.TTSError, RuntimeError, StopAsyncIteration) as e:
@@ -252,7 +277,7 @@ async def flip_round(game_id: str):
     if not line:
         return {"own_line": None, "pattern": None, "speech": _audio(g, "flip_open")}
     token = f"{g.id}-flip"
-    speech[token] = (line, time.time(), config.PAPPU_VOICE, g.lang)
+    speech[token] = (line, time.time(), config.PAPPU_VOICE, g.lang, config.TTS_MODEL)
     return {"own_line": line, "pattern": game.TACTICS[tactic]["label"], "speech": f"/api/speech/{token}"}
 
 
@@ -264,7 +289,7 @@ class FlipResult(BaseModel):
 async def flip_result(game_id: str, body: FlipResult):
     global _stats_dirty
     g = _get_game(game_id)
-    if not g.demo and not getattr(g, "flip_counted", False):
+    if not g.demo and not g.trailer and not getattr(g, "flip_counted", False):
         g.flip_counted = True
         stats["flip"][0] += 1 if body.hung_up else 0
         stats["flip"][1] += 1
@@ -278,10 +303,11 @@ class CutOff(BaseModel):
 
 @app.post("/api/game/{game_id}/cutoff")
 async def cut_off(game_id: str, body: CutOff):
-    result = _get_game(game_id).cut_off(body.said)
+    g = _get_game(game_id)
+    result = g.cut_off(body.said)
     if result is None:
         raise HTTPException(status_code=409, detail="No reason to interrupt.")
-    return result
+    return _his(g, result)
 
 
 class Counter(BaseModel):
@@ -294,7 +320,7 @@ async def counter_move(game_id: str, body: Counter):
     g = _get_game(game_id)
     if body.effect not in game.COUNTER_EFFECTS:
         raise HTTPException(status_code=400, detail="Unknown move")
-    return g.counter_result(body.effect, body.passed)
+    return _his(g, g.counter_result(body.effect, body.passed))
 
 
 class End(BaseModel):
@@ -313,7 +339,7 @@ async def end_game(game_id: str, body: End | None = None):
         g.outcome = "hung_up"
     first_report = not getattr(g, "reported", False)
     report = g.report(body.seen if body else None, body.last if body else None)
-    if first_report and not g.demo:
+    if first_report and not g.demo and not g.trailer:
         g.reported = True
         stats["plays"] += 1
         stats["seconds"] += min(game.GAME_SECONDS, int(time.time() - g.started))
@@ -327,7 +353,7 @@ async def end_game(game_id: str, body: End | None = None):
             stats["reformed"] += 1
         _stats_dirty = True
     report["crack_rate"] = round(100 * stats["cracked"] / max(1, stats["plays"]), 1)
-    return report
+    return _his(g, report)
 
 
 class Answers(BaseModel):
@@ -343,11 +369,11 @@ async def answer_questions(game_id: str, body: Answers):
         raise HTTPException(status_code=409, detail="Finish the call first.")
     first = g.knowledge is None
     result = scoring.grade(g, body.answers)
-    if first and not g.demo:
+    if first and not g.demo and not g.trailer:
         stats["quiz_after"][0] += sum(result["correct"])
         stats["quiz_after"][1] += len(result["correct"])
         _stats_dirty = True
-    return result
+    return _his(g, result)
 
 
 class Submit(BaseModel):
