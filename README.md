@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="PITCH.md"><b>Solution pitch (1 page)</b></a> &nbsp;·&nbsp; <a href="docs/Hang-Up-Pitch.pdf">PDF</a> &nbsp;·&nbsp;
   <a href="#play-this-readme">Play</a> &nbsp;·&nbsp;
   <a href="#inside-a-call">Screens</a> &nbsp;·&nbsp;
   <a href="#the-five-dadis">Dadis</a> &nbsp;·&nbsp;

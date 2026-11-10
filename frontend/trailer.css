@@ -60,3 +60,7 @@ body.trailer #flip-choices .chunky.pressed { transform: translateY(5px) scale(.9
 #tr-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #07040d; z-index: 9;
            color: #fff3d6; font: 800 30px "Baloo 2", system-ui, sans-serif; letter-spacing: .3em; }
 body.trailer.ready #tr-play { cursor: pointer; }
+
+/* ?raw=1: clean plates for an editor */
+body.trailer.raw #tr-pulse, body.trailer.raw #tr-otp, body.trailer.raw #tr-black, body.trailer.raw .tr-type { display: none !important; }
+body.trailer.raw #app { border-radius: 0; box-shadow: none; }

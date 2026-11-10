@@ -11,6 +11,7 @@
   const Q = new URLSearchParams(location.search);
   const AUTO = Q.get("autoplay") === "1";
   const FROM = Q.get("scene");
+  const RAW = Q.get("raw") === "1";  // clean plates for an editor: no camera, no overlays, voices only
   const CLIPS = "/audio/trailer/";
   // What the player says, exactly as backend/trailer.py expects it.
   const STEPS = [
@@ -29,6 +30,7 @@
   css.href = "trailer.css";
   document.head.append(css);
   document.body.classList.add("trailer");
+  if (RAW) document.body.classList.add("raw");
   const el = (tag, attrs = {}, html = "") => Object.assign(document.createElement(tag), attrs, html ? { innerHTML: html } : {});
   const stage = el("div", { id: "tr-stage" });
   const camEl = el("div", { id: "tr-cam" });
@@ -43,18 +45,19 @@
   camEl.append($("app"));
 
   let base = 1.5;
-  function fit() { base = Math.min(innerHeight / 720, innerWidth / 405) * 0.98; }
+  function fit() { base = Math.min(innerHeight / 720, innerWidth / 405) * (RAW ? 1 : 0.98); }
   fit();
   // The camera: scale s (1 = the whole phone in frame) looking at (fx, fy) in the phone's own pixels.
   function cam(s, fx = 202.5, fy = 360, ms = 0, ease = "cubic-bezier(.22,.8,.2,1)") {
+    if (RAW) { s = 1; fx = 202.5; fy = 360; ms = 0; }
     const k = base * s;
     camEl.style.transition = ms ? `transform ${ms}ms ${ease}` : "none";
     camEl.style.transform = `translate(${(202.5 - fx) * k}px, ${(360 - fy) * k}px) scale(${k})`;
   }
   const FACE = [202.5, 372], BUBBLE = [202.5, 196], BOSS = [202.5, 556], OTP = [202.5, 96], TALK = [202.5, 640];
-  function blackOn(fade = false) { black.classList.toggle("fade", fade); black.style.opacity = 1; }
+  function blackOn(fade = false) { if (RAW) return; black.classList.toggle("fade", fade); black.style.opacity = 1; }
   function blackOff(fade = false) { black.classList.toggle("fade", fade); black.style.opacity = 0; }
-  function say1(id, html) { words[id].innerHTML = html; words[id].classList.add("on"); }
+  function say1(id, html) { if (RAW) return; words[id].innerHTML = html; words[id].classList.add("on"); }
   function unsay(...ids) { for (const id of ids) words[id].classList.remove("on"); }
   function quietAll() { for (const w of Object.values(words)) w.classList.remove("on"); otp.querySelectorAll("span").forEach((s) => s.classList.remove("on")); otp.classList.remove("merged"); }
 
@@ -64,10 +67,10 @@
     unlockAudio();  // the game's own context, voice element and lip sync
     const ctx = (S.ctx = audio.ctx);
     S.master = ctx.createGain(); S.master.gain.value = 0.72; S.master.connect(ctx.destination);
-    S.music = ctx.createGain(); S.music.gain.value = 0.0001; S.music.connect(S.master);
+    S.music = ctx.createGain(); S.music.gain.value = 0.0001; if (!RAW) S.music.connect(S.master);
     S.musicLevel = 0.5;
-    S.sfx = ctx.createGain(); S.sfx.gain.value = 0.6; S.sfx.connect(S.master);
-    S.ui = ctx.createGain(); S.ui.gain.value = 0.35; S.ui.connect(S.master);
+    S.sfx = ctx.createGain(); S.sfx.gain.value = 0.6; if (!RAW) S.sfx.connect(S.master);
+    S.ui = ctx.createGain(); S.ui.gain.value = 0.35; if (!RAW) S.ui.connect(S.master);
     // Everyone on the other end of the call is heard through a phone line; the player is heard dry, close.
     const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300;
     const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600;
@@ -84,7 +87,7 @@
     const n = ctx.createBufferSource(); n.buffer = noise(ctx, 4); n.loop = true;
     const nf = ctx.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 380;
     S.room = ctx.createGain(); S.room.gain.value = 0;
-    n.connect(nf).connect(S.room).connect(S.master); n.start();
+    n.connect(nf).connect(S.room); if (!RAW) S.room.connect(S.master); n.start();
     // the game's beeps stay out of the trailer
     for (const k of Object.keys(sfx)) sfx[k] = () => {};
   }
@@ -181,8 +184,10 @@
     }));
   }
   const src = (name) => blobs[name.startsWith("/") ? name : `${CLIPS}${name}.mp3`];
-  async function them(name) { duck(true); await say(src(name)); duck(false); }  // through the line, with her mouth moving
+  const mark = (kind, data) => window.__L && window.__L(kind, data);  // a capture can line its cuts up with these
+  async function them(name) { mark("voice", { name }); duck(true); await say(src(name)); duck(false); }  // through the line, with her mouth moving
   function me(name) {  // the player, close and dry
+    mark("voice", { name });
     duck(true);
     return new Promise((resolve) => { S.me.src = src(name); S.me.onended = () => { duck(false); resolve(); }; S.me.play().catch(() => resolve()); });
   }
@@ -393,6 +398,7 @@
     if (FROM && i > 0) prepareFor(SCENES[i][0]);
     for (; i < SCENES.length; i++) {
       window.__trailerScene = SCENES[i][0];
+      mark("scene", { id: SCENES[i][0] });
       await SCENES[i][1]();
     }
   }
