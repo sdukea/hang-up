@@ -5,3 +5,10 @@ __pycache__/
 .DS_Store
 out/
 data/
+
+# Android signing key: never commit
+android/*.keystore
+android/keystore.properties
+android/app/build/
+android/.gradle/
+android/build/
