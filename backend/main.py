@@ -6,6 +6,7 @@ Browsers can't set the headers Prisma needs, and this keeps the API key private.
 
 import asyncio
 import json
+import mimetypes
 import logging
 import random
 import re
@@ -467,6 +468,9 @@ async def listen(browser: WebSocket):
         for t in tasks:
             t.cancel()
         await prisma.close()
+
+
+mimetypes.add_type("application/vnd.android.package-archive", ".apk")
 
 
 class Frontend(StaticFiles):

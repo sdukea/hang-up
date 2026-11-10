@@ -97,6 +97,9 @@ body {
 .r-unlock { margin: 10px auto 0; padding: 8px 12px; max-width: 360px; font-weight: 800; line-height: 1.25; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 12px; }
 .pitch-btn { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 5px; margin: 10px auto 0; padding: 7px 16px; min-height: 40px; border: 2px solid var(--ink); border-radius: 999px; background: var(--cream); color: var(--ink); font: 700 14px/1.2 var(--body); text-decoration: none; box-shadow: 0 3px 0 var(--ink); }
 .pitch-btn b { color: var(--pink-d); }
+.link-row { display: flex; justify-content: center; gap: 8px; margin: 10px 0 0; }
+.link-row .pitch-btn { margin: 0; }
+.apk-btn b { color: var(--teal-d); }
 .pitch-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .fine { margin: 16px 4px 0; text-align: center; font-size: 13.5px; line-height: 1.25; color: #e5d8fb; }
 .fine b { color: #fff; }

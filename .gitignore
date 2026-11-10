@@ -12,3 +12,6 @@ android/keystore.properties
 android/app/build/
 android/.gradle/
 android/build/
+android/*.apk
+android/*.aab
+android/*.idsig

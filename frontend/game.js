@@ -595,6 +595,10 @@ $("b-start").addEventListener("click", () => {
   show("brief");
 });
 
+// Inside the installed app, or on an iPhone, there's nothing to download.
+if (matchMedia("(display-mode: standalone)").matches || document.referrer.startsWith("android-app://")
+    || /iPhone|iPad|iPod/.test(navigator.userAgent)) $("b-apk").hidden = true;
+
 $("b-daily").addEventListener("click", () => {
   unlockAudio();
   sfx.tap();
