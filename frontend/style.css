@@ -95,6 +95,9 @@ body {
 .daily-btn b { color: var(--gold); }
 .unlocks { margin: 10px 0 0; text-align: center; font-size: 14px; font-weight: 700; color: #e5d8fb; }
 .r-unlock { margin: 10px auto 0; padding: 8px 12px; max-width: 360px; font-weight: 800; line-height: 1.25; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 12px; }
+.pitch-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0 0; padding: 12px 14px; min-height: 48px; border: 3px solid var(--ink); border-radius: 14px; background: var(--cream); color: var(--ink); font: 700 16px/1.2 var(--body); text-decoration: none; box-shadow: var(--pop); }
+.pitch-btn b { color: var(--pink-d); }
+.pitch-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
 .fine { margin: 16px 4px 0; text-align: center; font-size: 13.5px; line-height: 1.25; color: #e5d8fb; }
 .fine b { color: #fff; }
 
