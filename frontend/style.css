@@ -70,7 +70,7 @@ body {
 @keyframes ringing { 0%, 64%, 100% { transform: rotate(0); } 68% { transform: rotate(-14deg); } 72% { transform: rotate(12deg); } 76% { transform: rotate(-9deg); } 80% { transform: rotate(6deg); } 84% { transform: rotate(0); } }
 .kicker { margin: 10px 0 0; text-align: center; font-size: 21px; font-weight: 700; }
 .kicker b { color: var(--gold); }
-.title-dadi { flex: 1; min-height: 0; display: flex; align-items: flex-end; justify-content: center; }
+.title-dadi { flex: 1; min-height: 130px; display: flex; align-items: flex-end; justify-content: center; }
 .title-dadi .dadi { height: 100%; max-height: 300px; width: auto; animation: bob 2.6s ease-in-out infinite; }
 .title-bottom { width: 100%; }
 .scoreboard { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--ink); border: var(--edge); border-radius: 16px; margin-bottom: 18px; overflow: hidden; }
@@ -93,6 +93,8 @@ body {
   font: 700 16px var(--body); color: var(--cream); background: #3a0f7a; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink);
 }
 .daily-btn b { color: var(--gold); }
+.daily-btn span, .daily-btn b { white-space: nowrap; }
+.daily-btn { font-size: clamp(13px, 4vw, 16px); }
 .unlocks { margin: 10px 0 0; text-align: center; font-size: 14px; font-weight: 700; color: #e5d8fb; }
 .r-unlock { margin: 10px auto 0; padding: 8px 12px; max-width: 360px; font-weight: 800; line-height: 1.25; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 12px; }
 .pitch-btn { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 5px; margin: 10px auto 0; padding: 7px 16px; min-height: 40px; border: 2px solid var(--ink); border-radius: 999px; background: var(--cream); color: var(--ink); font: 700 14px/1.2 var(--body); text-decoration: none; box-shadow: 0 3px 0 var(--ink); }
@@ -420,8 +422,29 @@ body.in-game .sos { display: none; }
 @media (min-width: 501px) {
   #app { box-shadow: 0 0 0 6px var(--ink), 0 0 60px #000; }
 }
+/* Shorter phones: tighten everything around Dadi so she keeps her size. */
+@media (max-height: 800px) {
+  #s-title { padding-top: max(12px, env(safe-area-inset-top)); }
+  .logo { font-size: clamp(56px, 17vw, 76px); }
+  .kicker { margin-top: 6px; font-size: 18px; }
+  .scoreboard { margin-bottom: 10px; }
+  .scoreboard div { padding: 5px 4px; }
+  .scoreboard b { font-size: 22px; }
+  .lang-pick { margin-bottom: 9px; }
+  .lang-pick button { min-height: 36px; }
+  #b-start { font-size: 23px; }
+  .unlocks { margin-top: 7px; font-size: 13px; }
+  .daily-btn { margin-top: 8px; min-height: 40px; }
+  .link-row { margin-top: 8px; }
+  .pitch-btn { min-height: 36px; padding: 5px 14px; }
+  .fine { margin-top: 9px; font-size: 12.5px; }
+}
 @media (max-height: 680px) {
-  .logo { font-size: 58px; }
+  .logo { font-size: 50px; }
+  .title-dadi { min-height: 112px; }
+  .kicker { font-size: 16px; margin-top: 4px; }
+  #b-start { font-size: 21px; }
+  .fine { margin-top: 6px; }
   .bubble { font-size: 16px; }
   .talk { height: 66px; }
   .slot { width: 42px; height: 44px; font-size: 23px; }
