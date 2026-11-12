@@ -7,6 +7,20 @@
 </p>
 
 <p align="center">
+  <a href="https://play-hangup.onrender.com"><img alt="Play it live" src="https://img.shields.io/badge/▶_Play_it_live-play--hangup.onrender.com-ff2e7e?style=for-the-badge&labelColor=1b0b2e"></a>
+  <a href="https://play-hangup.onrender.com/hang-up.apk"><img alt="Android app" src="https://img.shields.io/badge/Android-APK-00c2a8?style=for-the-badge&logo=android&logoColor=white&labelColor=1b0b2e"></a>
+  <a href="PITCH.md"><img alt="Solution pitch" src="https://img.shields.io/badge/Solution_pitch-1_page-ffb300?style=for-the-badge&labelColor=1b0b2e"></a>
+</p>
+
+<p align="center">
+  <img alt="Site status" src="https://img.shields.io/website?url=https%3A%2F%2Fplay-hangup.onrender.com%2F&label=game&up_message=online&down_message=waking%20up&style=flat-square">
+  <img alt="Gnani Prisma" src="https://img.shields.io/badge/STT-Gnani_Prisma_v3.0-4a1398?style=flat-square">
+  <img alt="Gnani Timbre" src="https://img.shields.io/badge/TTS-Gnani_Timbre_v2.5_%2B_v3.0-4a1398?style=flat-square">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-plain_JS-009688?style=flat-square&logo=fastapi&logoColor=white">
+  <img alt="No accounts, no stored audio" src="https://img.shields.io/badge/privacy-no_accounts_·_no_stored_audio-2a0a5e?style=flat-square">
+</p>
+
+<p align="center">
   <a href="PITCH.md"><b>Solution pitch (1 page)</b></a> &nbsp;·&nbsp; <a href="docs/Hang-Up-Pitch.pdf">PDF</a> &nbsp;·&nbsp;
   <a href="https://play-hangup.onrender.com/hang-up.apk"><b>Android app (APK)</b></a> &nbsp;·&nbsp;
   <a href="#play-this-readme">Play</a> &nbsp;·&nbsp;
@@ -20,6 +34,18 @@
 </p>
 
 <img src="docs/readme/mission.svg" alt="Mission briefing beside an animated Kamla Dadi. To: you, a very fake officer. Target: Kamla Dadi, 78. Objective: her 4-digit OTP, before she works you out. Weapon: your voice; hold the button and really talk. Help: Boss, whispering real scam tactics. Warning: Boss may not stay till the end. She asks if you've eaten, she catches your lies, and she hands the phone to her grandson. Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do." width="100%">
+
+> [!TIP]
+> **Reviewing this? The two-minute version.**
+>
+> | | |
+> |---|---|
+> | **The problem** | Phone scams in India run on a script: authority, urgency, isolation, then the OTP. Warnings come after the fact, and the people most targeted have rarely heard the script before it's used on them. |
+> | **The idea** | Flip the roles. You play the scammer, out loud, against a grandmother who listens, reasons and answers in her own voice. Rehearsing the script from the other side makes it recognisable ([inoculation](#your-phone-rings)). |
+> | **The twist** | The OTP you fight for is always **1930**, India's cyber-fraud helpline. Then the game calls *you*, with your own lines. |
+> | **Gnani AI** | **Prisma** streams live partial transcripts, so she can cut you off mid-sentence. **Timbre** gives every character a distinct voice and reads your words back to you. |
+> | **Engineering** | Server-side rules and digits the model never sees · two LLMs raced per reply, with recorded fallback lines if both fail · long numbers masked before any text leaves the server · typing mode when there's no mic |
+> | **Try it** | [Play in a phone browser](https://play-hangup.onrender.com) (about three minutes a call) · [Android app](https://play-hangup.onrender.com/hang-up.apk) · [One-page pitch](PITCH.md) |
 
 ## Play this README
 
@@ -168,9 +194,38 @@ Then **your run**, moment by moment: what each move did to her trust and suspici
 | **Game engine** | Keeps the rules and digits on the server. The model is never told the OTP, and any reply containing digits is thrown out |
 | **Stack** | FastAPI and plain JavaScript, with no accounts and no database |
 
+<details>
+<summary><b>One turn of a call, step by step</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as You (browser)
+    participant S as Hang Up server
+    participant G as Gnani Prisma
+    participant L as LLM
+    participant T as Gnani Timbre
+    P->>S: Mic audio over a WebSocket, while you hold the button
+    S->>G: Streams the audio
+    G-->>S: Partial transcripts, word by word
+    S-->>P: Live captions
+    Note over S: "OTP" said too early? She cuts you off mid-sentence
+    G-->>S: Final transcript
+    S->>S: Mask long numbers, then score the move: tactic, trust, suspicion, digits
+    S->>L: Her situation, mood and your line (never the OTP)
+    L-->>S: Her reply, rejected if it contains any digit
+    S->>T: Her reply, in her voice
+    T-->>P: Streamed speech
+    S-->>P: Boss's next hint, her mood, any digit won
+```
+
+If the main model is slow or fails, a second model is raced against it; if both fail, she answers with a recorded line that fits the tactic you just used, so a call never stalls.
+
+</details>
+
 **Privacy:** your voice goes to Gnani for transcription, and your words go to the LLM for Dadi's replies. The game doesn't save audio or transcripts, and it replaces long numbers, such as a phone or Aadhaar number, before anything reaches the LLM. Never say a real OTP, PIN or account number.
 
-<sub>Built for Gnani AI's Great Indian AI Internship Challenge.</sub>
+<sub>Built for Gnani AI's Great Indian Internship Challenge.</sub>
 
 ## Run it
 
