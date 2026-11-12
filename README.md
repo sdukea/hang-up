@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  A voice game in Hindi and English, built on <b>Gnani Prisma</b> and <b>Gnani Timbre</b>.
+  Hindi and English &nbsp;·&nbsp; Live speech by <b>Gnani Prisma</b> &nbsp;·&nbsp; Voices by <b>Gnani Timbre</b>
 </p>
 
 <p align="center"><sub>
