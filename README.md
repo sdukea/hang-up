@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/hero.png" alt="Hang Up. A voice game. Get Dadi's OTP. If you can." width="100%">
+  <img src="docs/readme/hero.svg" alt="Hang Up. A voice game. Get Dadi's OTP. If you can." width="100%">
 </p>
 
 <p align="center">
