@@ -8,6 +8,7 @@ import asyncio
 import json
 import mimetypes
 import logging
+import os
 import random
 import re
 import time
@@ -15,6 +16,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -82,6 +84,25 @@ async def load_stats():
     except Exception as e:
         log.warning("Could not load stats: %s", e)
     asyncio.create_task(_save_stats_forever())
+    asyncio.create_task(_stay_awake())
+
+
+async def _stay_awake():
+    """Render's free tier sleeps after 15 idle minutes, and the next player waits for a cold start.
+
+    Render sets RENDER_EXTERNAL_URL, so this only runs there. The ping goes out through the public
+    URL, which is what counts as traffic. It reads the health check and nothing else.
+    """
+    url = os.environ.get("RENDER_EXTERNAL_URL")
+    if not url:
+        return
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            await asyncio.sleep(600)
+            try:
+                await client.get(f"{url}/api/health")
+            except Exception as e:
+                log.warning("Keep-awake ping failed: %s", e)
 
 
 async def _save_stats_forever():
