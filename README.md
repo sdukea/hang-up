@@ -118,7 +118,7 @@ Get your first OTP and someone else in the family starts picking up: **Pinky Did
 
 Six real tactics. Boss teaches each one, and Dadi teaches how to beat it. Use the same trick twice and she notices.
 
-<img src="docs/readme/tactics.png" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
+<img src="docs/readme/tactics.svg" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
 
 <details>
 <summary><b>How Boss coaches</b></summary>
@@ -131,11 +131,11 @@ Boss coaches one move at a time, reacting to what just happened: what you're aft
 
 Her counter-moves are real defences in disguise.
 
-<img src="docs/readme/moves.png" alt="Six counter-moves. The cooker: you're on hold and your clock keeps running; slow them down, scams need you rushed. Zor se bol: you have to physically shout; make them repeat themselves, scripts fall apart. I'll call the thana: you have 5 seconds to stop her; hang up and check it yourself. Enter Pappu: her grandson takes the phone and asks for your badge; bring in family, one call ends most scams. Your name again: repeat your made-up details exactly or get caught; liars slip. The wrong digit: she misreads a digit, on purpose or not; stay suspicious of what you're told." width="100%">
+<img src="docs/readme/moves.svg" alt="Six counter-moves. The cooker: you're on hold and your clock keeps running; slow them down, scams need you rushed. Zor se bol: you have to physically shout; make them repeat themselves, scripts fall apart. I'll call the thana: you have 5 seconds to stop her; hang up and check it yourself. Enter Pappu: her grandson takes the phone and asks for your badge; bring in family, one call ends most scams. Your name again: repeat your made-up details exactly or get caught; liars slip. The wrong digit: she misreads a digit, on purpose or not; stay suspicious of what you're told." width="100%">
 
 ## Ranks
 
-<img src="docs/readme/ranks.png" alt="Five ranks by digits won. 0: Chhota Chor, Dadi didn't even look up. 1: Call Centre Trainee, you got one digit, she let you. 2: Fake Inspector, halfway there, then she got bored. 3: Almost Dangerous, one digit away, Dadi is impressed and calling Pappu. 4: Most Wanted, you got all four digits, then she got you." width="100%">
+<img src="docs/readme/ranks.svg" alt="Five ranks by digits won. 0: Chhota Chor, Dadi didn't even look up. 1: Call Centre Trainee, you got one digit, she let you. 2: Fake Inspector, halfway there, then she got bored. 3: Almost Dangerous, one digit away, Dadi is impressed and calling Pappu. 4: Most Wanted, you got all four digits, then she got you." width="100%">
 
 <img src="docs/readme/share.png" alt="A Hang Up share card: Most Wanted, with ticked digit tiles. Dare a friend: every call ends with your Nazar Score and a card that hides your digits; send it, and they get your exact Dadi. A hidden rank: there's one that isn't on the staircase, and it takes something you probably won't think to try." width="100%">
 
@@ -156,7 +156,7 @@ Get all four digits and you'll think you've won. Then you'll look at them proper
 
 Win or lose, the call isn't over. This is the part that matters most.
 
-<img src="docs/readme/your-phone.png" alt="Three steps with real screens. 1, it rings: an unknown number, and a stranger reads your own best line back, then demands your OTP. Give the OTP or hang up. 2, you choose: all you have to do is hang up; if you don't, you ran this exact script a minute ago and it still got you. If you do: hang up, tell someone you trust, and call 1930 if money has gone. 3, now call yours: your parents won't play this game, so send them a 20-second voice note from Dadi, in Hindi, on what to do." width="100%">
+<img src="docs/readme/your-phone.svg" alt="Three steps with real screens. 1, it rings: an unknown number, and a stranger reads your own best line back, then demands your OTP. Give the OTP or hang up. 2, you choose: all you have to do is hang up; if you don't, you ran this exact script a minute ago and it still got you. If you do: hang up, tell someone you trust, and call 1930 if money has gone. 3, now call yours: your parents won't play this game, so send them a 20-second voice note from Dadi, in Hindi, on what to do." width="100%">
 
 **Why make you the scammer?** "Beware of scams" is easy to ignore. Running the script yourself is harder to forget: you feel why fear comes before kindness, and why they always say *tell nobody*.
 
@@ -195,7 +195,7 @@ Runs where Dadi's AI was down for too much of the call stay playable but aren't 
 
 ## How it works
 
-<img src="docs/readme/how-it-works.png" alt="You lie out loud through your microphone. She hears, with Gnani Prisma v3.0 showing live words. She judges, with the game engine and an LLM scoring your move and writing her comeback. She claps back with Gnani Timbre v2.5. Say OTP too early and Prisma's live words trigger her cut-off mid-sentence." width="100%">
+<img src="docs/readme/how-it-works.svg" alt="You lie out loud through your microphone. She hears, with Gnani Prisma v3.0 showing live words. She judges, with the game engine and an LLM scoring your move and writing her comeback. She claps back with Gnani Timbre v2.5. Say OTP too early and Prisma's live words trigger her cut-off mid-sentence." width="100%">
 
 | Part | What it does |
 |---|---|
