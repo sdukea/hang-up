@@ -37,6 +37,14 @@
 > | **Engineering** | Server-side rules and digits the model never sees · two LLMs raced per reply, with recorded fallback lines if both fail · long numbers masked before any text leaves the server · typing mode when there's no mic |
 > | **Try it** | [Play in a phone browser](https://play-hangup.onrender.com) (about three minutes a call) · [Android app](https://play-hangup.onrender.com/hang-up.apk) · [One-page pitch](PITCH.md) |
 
+## Inside a call
+
+<p align="center">
+  <img src="docs/readme/call.gif" alt="Highlights of one real recorded call: the title screen, Kusum Dadi picking up, Dadi putting the caller on hold to check the cooker, an Isolation tactic stamp, the first digit won, a Same trick again warning, Your story held, and finally Busted: Dadi reported the caller to 1930." width="300">
+</p>
+
+<p align="center"><sub>One real call, cut to its moments: she puts you on hold, you win a digit, she catches a repeated trick, she busts you. Real speech in, real replies out.</sub></p>
+
 ## Play this README
 
 No install, no microphone. Dadi has picked up:
@@ -87,11 +95,14 @@ Oh, *interesting*. Say this in the real game and see what happens.
 
 <sub>Lines come from real calls and the game's script. In the real game, her replies are written live, so yours will differ.</sub>
 
-## Inside a call
-
-<img src="docs/readme/screens.png" alt="Real screens from a demo call, with Dadi's real replies. She teases the caller about marriage, cuts the caller off for asking for the OTP too early, and gives up the first digit." width="100%">
-
 ## Who picks up?
+
+<img src="docs/readme/family.svg" alt="Who picks up? Three cards take turns ringing. Dadi: a different grandmother every call, voiced by Gnani Timbre Chitra; mid-puja, hunting for her glasses, remembers everything. Pinky Didi: a college student who checks, voiced by Zahira; looks you up online, notices flattery, exam form due tonight; unlocks after your first OTP. Dadaji: a retired government clerk, voiced by Prakash on Timbre v3.0; keeps a diary, wants a reference number, checks your story twice; unlocks after three Dadis. A ticker scrolls through her day: a parcel, a strange SMS, a son on his way home, a bank warning." width="100%">
+
+Every call is someone new, with her own situation, temperament and hidden traits. Nothing tells you who she is: you read her.
+
+<details>
+<summary><b>How each call is built</b></summary>
 
 You never know. Every call, a different grandmother answers, built from her situation (mid-puja, cooking, half out of the door, hunting for her glasses), her temperament (chatty, sceptical, blunt, anxious, proud...), who else is around, today's mood, and one or two hidden traits: perfect recall, a habit of checking things herself, digging in under pressure.
 
@@ -101,13 +112,20 @@ Nothing tells you any of this. You work her out from how she talks, and what lan
 
 Get your first OTP and someone else in the family starts picking up: **Pinky Didi**, a college student voiced by Gnani's Zahira. She's a different puzzle. Officials get her attention, and then she checks. Flattery gets noticed, and she'll put you on hold to look you up. She has her own day too: a job offer that's too good, an exam form due tonight, a refund she's waiting on. Crack three different Dadis and **Dadaji** picks up: a retired government clerk, voiced by Gnani's Prakash on Timbre v3.0. He keeps a diary. He wants reference numbers and the proper channel, reads your own claims back to you, and checks your story twice. A story that holds up earns his trust; one changed detail and he has you. Once someone new has answered, anyone you've unlocked could pick up next.
 
+</details>
+
 ## The playbook
 
 Six real tactics. Boss teaches each one, and Dadi teaches how to beat it. Use the same trick twice and she notices.
 
+<img src="docs/readme/tactics.png" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
+
+<details>
+<summary><b>How Boss coaches</b></summary>
+
 Boss coaches one move at a time, reacting to what just happened: what you're after, and the one thing to say next, plus a quick ✓ or ✗ on your last move. Then he steps back so Dadi stays the focus. He works from the standard script and what he's seen of her, so his advice can still be wrong for this particular Dadi.
 
-<img src="docs/readme/tactics.png" alt="Six tactic cards with Boss's line and the real-life counter. Fake Authority: ask for their name and office, hang up, and call that office yourself on its official number. Fear: there is no such thing as a digital arrest; police don't arrest anyone over a phone or video call. Urgency: real authorities give you time; any do it right now is your cue to slow down. Isolation: the moment someone says tell nobody, tell someone; call your family straight away. Fake Kindness: someone who scares you and then offers to save you is running a script; trust the pattern, not the tone. The OTP Ask: nobody genuine ever asks for your OTP, not your bank, not the police, not the RBI; never share it." width="100%">
+</details>
 
 ## Dadi fights back
 
@@ -153,9 +171,10 @@ The idea is inspired by inoculation research, which found that playing the manip
 
 ## Score, replay, today's challenge
 
-Every call ends with **one lesson from what you actually did**: you pushed too hard, you got her trust first, you stopped her checking. It's worded around who she was, and one thing to remember for a real call. Lessons you've already had come back shorter.
+Every call ends with **one lesson from what you actually did**, a **Nazar Score** out of 100, and a moment-by-moment replay of your run. **Today's challenge** gives everyone the same Dadi, with a daily leaderboard, and **Challenge a friend** sends them your exact Dadi and the score to beat.
 
-Then, under the full breakdown, a **Nazar Score** out of 100:
+<details>
+<summary><b>How the Nazar Score works</b></summary>
 
 | Part | Points |
 |---|---|
@@ -164,9 +183,11 @@ Then, under the full breakdown, a **Nazar Score** out of 100:
 | **Spot the red flags**: three questions built from your own call | up to 30 |
 | Red flags you used, like stopping her from checking with the police | −8 each |
 
-Then **your run**, moment by moment: what each move did to her trust and suspicion, the turning point, *why* it turned, and the real-world red flag it teaches. Your words are shown only to you and never stored.
+**Your run**, moment by moment: what each move did to her trust and suspicion, the turning point, *why* it turned, and the real-world red flag it teaches. Your words are shown only to you and never stored.
 
-**Today's challenge** is the same Dadi, the same condition and the same counter-moves for everyone, with a daily leaderboard. **Challenge a friend** sends them your exact Dadi and your score to beat. Runs where Dadi's AI was down for too much of the call stay playable but aren't ranked.
+Runs where Dadi's AI was down for too much of the call stay playable but aren't ranked. Lessons you've already had come back shorter.
+
+</details>
 
 ## Phrasebook
 
