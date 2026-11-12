@@ -255,6 +255,8 @@ Open [localhost:8000](http://localhost:8000), allow the microphone, hold the but
 
 - **Meet the same Dadi again:** open a challenge link (`?c=` plus her code). Developers can start the server with `DEBUG=1` to see each Dadi's hidden profile during the call; never set it on a public deployment.
 - **No microphone:** the game switches to typing.
+- **Accounts:** optional. Sign in from the round button on the title to keep your score, unlocks and place on the leaderboard; guests play exactly as before. Details: [docs/ACCOUNTS.md](docs/ACCOUNTS.md).
+- **Tests:** `uv sync --dev && uv run pytest -q`.
 
 <details>
 <summary><b>Recording a demo</b></summary>

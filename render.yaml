@@ -2,6 +2,8 @@
 # Free web services sleep without traffic and lose local files on restart, so
 # the public counters use an S3-compatible bucket and an uptime monitor pings
 # /api/health every 5 minutes to keep the game awake.
+# Accounts and progress live in SQLite; with the bucket set it is restored at start and
+# snapshotted to the bucket within 30 s of a change. Keep this service at one instance.
 services:
   - type: web
     # The game is now called Hang Up. The service keeps its first name so the

@@ -148,6 +148,7 @@
     <!-- TITLE -->
     <section id="s-title" class="screen">
       <div class="sunburst"></div>
+      <button type="button" id="b-account" class="account-chip" aria-label="Sign in" hidden><span id="account-face" aria-hidden="true">👤</span><span id="account-name" class="sr-only">Sign in</span></button>
       <div class="title-top">
         <h1 class="logo" aria-label="Hang Up">
           <span class="logo-hang">HANG</span>
@@ -176,6 +177,54 @@
           <a id="b-apk" class="pitch-btn apk-btn" href="hang-up.apk" download="Hang-Up.apk">📲 <b>Android app</b></a>
         </div>
         <p class="fine">A comedy game. All fictional. <b>Never say a real OTP, PIN or account number.</b></p>
+      </div>
+    </section>
+
+    <!-- ACCOUNT: sign in, or your caller ID -->
+    <section id="s-account" class="screen scrolls" hidden>
+      <button type="button" class="back" data-back aria-label="Back to the start">‹ Back</button>
+      <div class="account-wrap">
+        <div id="acct-out" class="panel acct-panel">
+          <small class="panel-kicker">YOUR CALLER ID</small>
+          <h2 id="acct-title" class="acct-title">Sign in</h2>
+          <p class="acct-why">Keep your score, the people you've unlocked and your place on the board. On any phone.</p>
+          <div class="acct-tabs" role="group" aria-label="Sign in or create an account">
+            <button type="button" data-acct="login" aria-pressed="true">Sign in</button>
+            <button type="button" data-acct="register" aria-pressed="false">New here</button>
+          </div>
+          <form id="acct-form" class="acct-form">
+            <label>Username <input id="acct-user" autocomplete="username" maxlength="20" required spellcheck="false" autocapitalize="off"></label>
+            <label>Password <input id="acct-pass" type="password" autocomplete="current-password" maxlength="128" required></label>
+            <p id="acct-error" class="acct-error" role="alert" hidden></p>
+            <button class="chunky pink" id="acct-submit">Sign in</button>
+          </form>
+          <p class="acct-fine">Just a username and password. No email, no phone number. Your username shows on the leaderboard.</p>
+        </div>
+        <div id="acct-in" class="acct-in" hidden>
+          <div class="panel acct-panel">
+            <small class="panel-kicker">CALLER ID</small>
+            <h2 id="home-name" class="acct-title"></h2>
+            <div class="home-stats">
+              <div><b id="hs-games">0</b><small>calls made</small></div>
+              <div><b id="hs-best">–</b><small>best score</small></div>
+              <div><b id="hs-hung">–</b><small>hung up on the scam call</small></div>
+              <div><b id="hs-flags">–</b><small>red flags spotted</small></div>
+            </div>
+            <p id="home-rank" class="home-rank"></p>
+          </div>
+          <div class="panel acct-panel">
+            <small class="panel-kicker">WHO CAN PICK UP</small>
+            <div id="home-cast" class="home-cast"></div>
+            <p id="home-next" class="home-next"></p>
+          </div>
+          <button type="button" id="home-play" class="chunky pink">Start the scam</button>
+          <button type="button" id="acct-logout" class="link-btn">Sign out</button>
+        </div>
+        <div class="panel acct-panel">
+          <small class="panel-kicker">ALL-TIME LEADERBOARD · BEST SCORE</small>
+          <ol id="home-board" class="board-list"></ol>
+          <p id="home-board-empty" class="home-next" hidden>Nobody yet. A finished call with its three questions answered gets you on.</p>
+        </div>
       </div>
     </section>
 

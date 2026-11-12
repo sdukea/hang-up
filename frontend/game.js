@@ -16,6 +16,9 @@ const post = (url, body, ms = 12000) => {
   }).finally(() => clearTimeout(timer));
 };
 
+// Who's signed in, and their progress from the server. Guests have neither; the game works the same.
+const account = { user: null, player: null };
+
 const SHOUT_LEVEL = 0.32;      // how loud "louder!" means, on the 0-1 meter
 const OTP_WORD = /\bo[\s.]*t[\s.]*p\b|[ओऑ][\s.]*ट[ीि][\s.]*प[ीि]/i;
 // Safari replays media requests and needs byte ranges, so it waits for the whole reply.
@@ -400,17 +403,19 @@ function preloadClips() {
 
 // ---------- Screens ----------
 
+const SCREENS = ["title", "account", "brief", "ring", "game", "end", "flip", "report"];
+
 function show(name) {
-  for (const id of ["title", "brief", "ring", "game", "end", "flip", "report"]) $(`s-${id}`).hidden = id !== name;
+  for (const id of SCREENS) $(`s-${id}`).hidden = id !== name;
   regender();
   document.body.classList.toggle("in-game", name === "game" || name === "report");
   // Screens you can step back from get a history entry, so the phone's Back button works too.
-  if (["brief", "game", "report"].includes(name) && !(history.state && history.state.screen === name)) {
+  if (["account", "brief", "game", "report"].includes(name) && !(history.state && history.state.screen === name)) {
     try { history.pushState({ screen: name }, ""); } catch (err) { /* sandboxed */ }
   }
 }
 
-const screenNow = () => ["title", "brief", "ring", "game", "end", "flip", "report"].find((id) => !$(`s-${id}`).hidden);
+const screenNow = () => SCREENS.find((id) => !$(`s-${id}`).hidden);
 
 function goHome() {
   hush();
@@ -418,6 +423,7 @@ function goHome() {
   show("title");
   loadStats();
   showUnlocks();
+  refreshAccount();
 }
 
 // Leaving a live call always asks first. Leaving means hanging up: the ending still plays.
@@ -440,7 +446,7 @@ window.addEventListener("popstate", () => {
   if (now === "game" && inCall()) {
     try { history.pushState({ screen: "game" }, ""); } catch (err) { /* sandboxed */ }
     askLeave();
-  } else if (now === "brief" || now === "report") {
+  } else if (now === "brief" || now === "report" || now === "account") {
     goHome();
   } else if (now !== "title") {
     try { history.pushState({ screen: now }, ""); } catch (err) { /* mid-ending: stay put */ }
@@ -552,9 +558,157 @@ function updateTalk() {
   else label.textContent = "HOLD TO TALK";
 }
 
+// ---------- Accounts ----------
+// One quiet chip on the title. Behind it, sign-in, or your caller ID: calls, best, who can pick up,
+// and the board. Demo and trailer runs never show it.
+
+const getJSON = (url) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const quietMode = () => demoMode() || new URLSearchParams(location.search).get("trailer") === "1";
+
+async function refreshAccount() {
+  if (quietMode()) return;
+  const me = await getJSON("/api/auth/me");
+  account.user = (me && me.user) || null;
+  account.player = account.user ? await getJSON("/api/player") : null;
+  if (account.user && !account.player) account.user = null;  // the session ended between the two
+  renderAccountChip();
+  if (screenNow() === "title") { loadStats(); showUnlocks(); }
+  if (screenNow() === "account") renderAccount();
+}
+
+function renderAccountChip() {
+  const chip = $("b-account");
+  chip.hidden = quietMode();
+  chip.classList.toggle("in", Boolean(account.user));
+  const st = account.player && account.player.stats;
+  const label = account.user ? `${account.user.username}${st && st.completed ? `, best ${st.best_score}` : ""}. Your caller ID` : "Sign in";
+  $("account-face").textContent = account.user ? account.user.username[0].toUpperCase() : "👤";
+  $("account-name").textContent = label;
+  chip.setAttribute("aria-label", label);
+  chip.title = label;
+}
+
+let acctMode = "login";
+function setAcctMode(mode) {
+  acctMode = mode;
+  document.querySelectorAll("[data-acct]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.acct === mode)));
+  $("acct-title").textContent = mode === "login" ? "Sign in" : "Pick a caller ID";
+  $("acct-submit").textContent = mode === "login" ? "Sign in" : "Create account";
+  $("acct-pass").autocomplete = mode === "login" ? "current-password" : "new-password";
+  $("acct-pass").placeholder = mode === "login" ? "" : "at least 8 characters";
+  $("acct-user").placeholder = mode === "login" ? "" : "letters, numbers, _";
+  $("acct-error").hidden = true;
+}
+document.querySelectorAll("[data-acct]").forEach((b) => b.addEventListener("click", () => { sfx.tap(); setAcctMode(b.dataset.acct); }));
+
+$("b-account").addEventListener("click", () => {
+  unlockAudio();
+  sfx.tap();
+  show("account");
+  renderAccount();
+  if (!account.user) setTimeout(() => $("acct-user").focus(), 50);
+});
+
+$("acct-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = $("acct-user").value.trim(), password = $("acct-pass").value;
+  $("acct-submit").disabled = true;
+  $("acct-error").hidden = true;
+  const resp = await post(`/api/auth/${acctMode === "login" ? "login" : "register"}`, { username, password }).catch(() => null);
+  const data = resp ? await resp.json().catch(() => null) : null;
+  $("acct-submit").disabled = false;
+  if (!resp || !resp.ok) {
+    const detail = data && data.detail;
+    $("acct-error").textContent = typeof detail === "string" ? detail : "Couldn't reach the game. Try again.";
+    $("acct-error").hidden = false;
+    sfx.bad();
+    return;
+  }
+  $("acct-pass").value = "";
+  sfx.good();
+  await refreshAccount();
+  renderAccount();
+});
+
+$("acct-logout").addEventListener("click", async () => {
+  sfx.tap();
+  await post("/api/auth/logout").catch(() => null);
+  account.user = account.player = null;
+  renderAccountChip();
+  renderAccount();
+});
+
+$("home-play").addEventListener("click", () => {
+  unlockAudio();
+  sfx.tap();
+  state.mode = state.code ? "challenge" : "free";
+  show("brief");
+});
+
+const CAST = [["dadi", "Dadi"], ["didi", "Pinky Didi"], ["dadaji", "Dadaji"]];
+
+function renderAccount() {
+  const p = account.player;
+  $("acct-out").hidden = Boolean(p);
+  $("acct-in").hidden = !p;
+  if (p) {
+    const st = p.stats;
+    $("home-name").textContent = p.username;
+    $("hs-games").textContent = st.games;
+    $("hs-best").textContent = st.completed ? st.best_score : "–";
+    $("hs-hung").textContent = st.mirror_calls ? `${st.mirror_hung_up}/${st.mirror_calls}` : "–";
+    $("hs-flags").textContent = st.quiz_answered ? `${st.quiz_correct}/${st.quiz_answered}` : "–";
+    $("home-rank").textContent = p.rank ? `#${p.rank} on the all-time board. ${st.cracked} OTP${st.cracked === 1 ? "" : "s"} cracked, ${st.busted} times caught.`
+      : st.games ? "Answer the three questions after a call to get a score and a place on the board." : "Your first call is waiting.";
+    $("home-cast").replaceChildren(...CAST.map(([role, label]) => {
+      const card = document.createElement("div");
+      card.className = `cast${p.unlocked.includes(role) ? "" : " locked"}`;
+      const tpl = $(`${role}-art`);
+      if (tpl) card.append(tpl.content.cloneNode(true));
+      card.append(document.createTextNode(label));
+      return card;
+    }));
+    const next = p.next_unlock;
+    $("home-next").textContent = next ? `🔒 Next: ${next.role === "didi" ? "Pinky Didi" : "Dadaji"}. ${next.need}${next.of > 1 ? ` (${next.have}/${next.of})` : ""}`
+      : "Everyone can pick up now. You never know who will.";
+  }
+  getJSON("/api/leaderboard").then((board) => {
+    const top = (board && board.top) || [];
+    $("home-board-empty").hidden = top.length > 0;
+    $("home-board").replaceChildren(...top.map((e) => {
+      const li = document.createElement("li");
+      if (account.user && e.name === account.user.username) li.className = "mine";
+      li.textContent = `${e.name} · ${e.score} · ${e.games} call${e.games === 1 ? "" : "s"}`;
+      return li;
+    }));
+  });
+}
+
+// A reload mid-call can't resume a live, timed call. Close it on the server, uncounted, and say so.
+function recoverDroppedCall() {
+  let id = null;
+  try { id = sessionStorage.getItem("hu_live"); sessionStorage.removeItem("hu_live"); } catch (err) { return; }
+  if (!id || quietMode()) return;
+  post(`/api/game/${id}/abandon`).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
+    if (!d || !d.abandoned || state.code) return;
+    $("dare").textContent = "Your last call dropped when the page reloaded, so it wasn't counted. Start a fresh one.";
+    $("dare").hidden = false;
+  });
+}
+
 // ---------- Title ----------
 
 async function loadStats() {
+  const labels = document.querySelectorAll(".scoreboard small");
+  if (account.player) {  // signed in: your own calls, not everyone's
+    const st = account.player.stats;
+    $("st-plays").textContent = st.games.toLocaleString("en-IN");
+    $("st-rate").textContent = st.cracked.toLocaleString("en-IN");
+    $("st-mins").textContent = st.completed ? st.best_score : "–";
+    ["your calls", "you cracked", "your best"].forEach((t, i) => { labels[i].textContent = t; });
+    return;
+  }
+  ["scammers tried", "cracked her", "minutes wasted"].forEach((t, i) => { labels[i].textContent = t; });
   try {
     const s = await (await fetch("/api/stats")).json();
     $("st-plays").textContent = s.plays.toLocaleString("en-IN");
@@ -625,7 +779,8 @@ function crackedDadis() {
 
 function showUnlocks() {
   const el = $("unlocks");
-  const have = unlocked(), n = crackedDadis().length;
+  const have = account.player ? account.player.unlocked : unlocked();
+  const n = account.player ? account.player.cracked_dadis : crackedDadis().length;
   el.hidden = false;
   el.textContent = !have.includes("didi")
     ? "🔒 Next to pick up: Pinky Didi. Get any Dadi's OTP once."
@@ -637,6 +792,11 @@ function showUnlocks() {
 // A first 1930 brings in Pinky; three different Dadis cracked bring in Dadaji. Whoever is new answers the very next call.
 function unlockNext(r) {
   if (state.game.demo || r.outcome !== "cracked") return "";
+  if (r.saved) {  // signed in: the server decided, and remembers
+    const fresh = (r.unlocked || [])[0];
+    return fresh === "didi" ? "NEW: Pinky Didi unlocked. She picks up your next call."
+      : fresh === "dadaji" ? "NEW: Dadaji unlocked. He picks up your next call. Keep your story straight." : "";
+  }
   const have = unlocked();
   if (state.game.role === "dadi" && state.game.code) {
     const done = crackedDadis();
@@ -878,8 +1038,9 @@ async function runCall() {
     startFailed(NOT_ANSWERING);
     return;
   }
+  try { sessionStorage.setItem("hu_live", data.id); } catch (err) { /* private window */ }
   Object.assign(state, {
-    game: data, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
+    game: data, seq: 0, secondsLeft: data.seconds, over: false, busy: false, holding: false, lockedUntil: 0,
     voiceDown: !hasMic, shoutPending: false, shoutTries: 0, callbackPending: false, pappuHere: false, pendingDigits: [],
     finals: [], partial: "", idleCount: 0, gags: {}, report: null, storyBuilt: data.story_built, cutoffs: 0, callLost: false,
     voiceWarned: false, listenFails: 0, deadMicHolds: 0, flipPicked: null, graded: null, signal: "", mirrorPattern: null,
@@ -1109,7 +1270,8 @@ async function playTurn(text) {
   }
   const reacting = say(clip(firstClip));
   let answered = false;
-  const reply = post(`/api/game/${game.id}/turn`, { said: text })
+  state.seq += 1;
+  const reply = post(`/api/game/${game.id}/turn`, { said: text, seq: state.seq })
     .then((resp) => {
       // The server restarted mid-call, or already knows how this call ended.
       if (resp.status === 404 || resp.status === 409) state.callLost = true;
@@ -1399,6 +1561,7 @@ $("b-hang").addEventListener("click", askLeave);
 async function endCall(outcome) {
   if (state.over) return;
   state.over = true;
+  try { sessionStorage.removeItem("hu_live"); } catch (err) { /* private window */ }
   $("leave").hidden = true;
   clearInterval(state.timerId);
   clearTimeout(state.callbackTimer);
@@ -1763,15 +1926,23 @@ async function lockAnswers(picks) {
   const right = graded.correct.filter(Boolean).length;
   if (right === 3) sfx.good(); else if (!right) sfx.bad();
   renderScore(graded);
-  $("s-best").textContent = personalBest(graded.score);
+  $("s-best").textContent = personalBest(graded.score, graded);
   $("b-share").textContent = `Challenge a friend to beat ${graded.score}`;
   renderRun();
   renderBoard();
 }
 
 // Your best, per Dadi, and a streak for days you play today's Dadi.
-function personalBest(score) {
+function personalBest(score, graded) {
   if (state.game.demo) return "Demo run: not counted.";
+  if (graded && graded.player) {  // signed in: saved to the account
+    const before = account.player ? account.player.stats.best_score : 0;
+    const had = account.player && account.player.stats.completed;
+    const rank = graded.player.rank ? ` You're #${graded.player.rank} on the all-time board.` : "";
+    refreshAccount();
+    if (!had) return `Your first score, saved to ${account.user.username}. Now beat it.${rank}`;
+    return (score > before ? `New personal best! (was ${before})` : `Your best: ${graded.player.best_score}.`) + rank;
+  }
   const r = state.report;
   const notes = [];
   const best = Number(safeGet("dadi_best") || 0);
@@ -1790,6 +1961,7 @@ function personalBest(score) {
     safeSet("dadi_streak", streak);
     if (streak > 1) notes.push(`${streak}-day streak.`);
   }
+  if (!account.user) notes.push("Sign in to keep it.");
   return notes.join(" ");
 }
 
@@ -1834,12 +2006,26 @@ function renderBoard() {
   const r = state.report;
   if (!r.daily) return;
   $("board").hidden = false;
-  $("board-form").hidden = !r.ranked;
-  $("board-note").textContent = r.ranked
-    ? "Post your score to today's board."
-    : "This run can't be ranked: the AI was offline for too much of the call. Try again later.";
-  $("board-name").value = safeGet("dadi_nick") || "";
+  $("board-form").hidden = true;
   showBoard(state.daily ? state.daily.top : []);
+  if (!r.ranked) {
+    $("board-note").textContent = "This run can't be ranked: the AI was offline for too much of the call. Try again later.";
+    return;
+  }
+  if (!r.saved) {
+    $("board-note").textContent = "Sign in before your next daily call to get on the board.";
+    return;
+  }
+  $("board-note").textContent = "Checking the board…";
+  post(`/api/game/${state.game.id}/submit`).then((resp) => (resp.ok ? resp.json() : null)).catch(() => null).then((data) => {
+    if (!data) {
+      $("board-note").textContent = "Couldn't reach the board. Your score is still saved.";
+      return;
+    }
+    $("board-note").textContent = data.rank ? `You're #${data.rank} of ${data.of} today, as ${account.user.username}.` : "Your score is saved.";
+    showBoard(data.top, data.rank);
+    sfx.good();
+  });
 }
 
 function showBoard(top, mine) {
@@ -2104,6 +2290,8 @@ function safeSet(key, value) {
 }
 
 loadStats();
+recoverDroppedCall();
+refreshAccount();
 
 // ?trailer=1: a fixed, recordable cut of a real call (trailer.js). Nothing loads unless asked for.
 if (new URLSearchParams(location.search).get("trailer") === "1") {

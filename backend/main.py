@@ -17,12 +17,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import character, config, game, gender, scenario, scoring, tts
+from . import accounts, character, config, db, game, gender, progress, scenario, scoring, tts
 from .storage import store
 from .stt import PrismaStream
 
@@ -39,6 +39,16 @@ async def moved(request: Request, call_next):
         query = f"?{request.url.query}" if request.url.query else ""
         return RedirectResponse(f"{config.REDIRECT_TO}{request.url.path}{query}", status_code=302)
     return await call_next(request)
+@app.middleware("http")
+async def same_origin(request: Request, call_next):
+    """Browsers send Origin on cross-site POSTs. Anything that changes state must come from this site."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path.startswith("/api/"):
+        origin = request.headers.get("origin")
+        if origin and origin.split("://", 1)[-1] != request.headers.get("host", ""):
+            return JSONResponse({"detail": "Cross-site request refused."}, status_code=403)
+    return await call_next(request)
+
+
 FRONTEND = config.ROOT / "frontend"
 STATS_KEY = "stats.json"
 
@@ -53,30 +63,21 @@ stats = {
 }
 _stats_dirty = False
 IST = timezone(timedelta(hours=5, minutes=30))
-BOARD_SIZE = 50
-boards: dict[str, list[dict]] = {}   # date -> the day's top runs, cached from storage
-_board_lock = asyncio.Lock()
 
 
 def today() -> str:
     return datetime.now(IST).strftime("%Y-%m-%d")
 
 
-async def load_board(date: str) -> list[dict]:
-    if date not in boards:
-        try:
-            saved = await store.get(f"daily/{date}.json")
-            boards[date] = json.loads(saved) if saved else []
-        except Exception as e:
-            log.warning("Could not load the daily board: %s", e)
-            return []
-        for old in [d for d in boards if d < date]:
-            del boards[old]
-    return boards[date]
-
-
 @app.on_event("startup")
 async def load_stats():
+    await db.restore(store)
+    await db.run(db.migrate)
+    # Calls live in memory; any the database still thinks are running died with the last process.
+    swept = await db.run(progress.sweep, set(), True)
+    if swept:
+        log.info("Closed %d calls left running by the last process", swept)
+    asyncio.create_task(db.snapshot_forever(store))
     try:
         saved = await store.get(STATS_KEY)
         if saved:
@@ -117,11 +118,45 @@ async def _save_stats_forever():
                 log.warning("Could not save stats: %s", e)
 
 
-def _get_game(game_id: str) -> game.Game:
+async def current_user(request: Request) -> dict | None:
+    """Who is signed in, from the session cookie. Never from anything the browser says about itself."""
+    token = request.cookies.get(accounts.COOKIE)
+    if not token:
+        return None
+    try:
+        return await db.run(accounts.resolve, token)
+    except Exception as e:
+        log.warning("Session lookup failed: %s", e)
+        return None
+
+
+async def signed_in(request: Request) -> dict:
+    user = await current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in first.")
+    return user
+
+
+async def _get_game(game_id: str, request: Request) -> game.Game:
+    """A call, only for whoever started it. A signed-in player's call can't be touched from another
+    account (or signed out); a guest's call is reachable only by its unguessable id."""
     g = games.get(game_id)
     if not g:
         raise HTTPException(status_code=404, detail="This call has ended.")
+    if g.user_id is not None:
+        user = await current_user(request)
+        if not user or user["id"] != g.user_id:
+            raise HTTPException(status_code=404, detail="This call has ended.")
     return g
+
+
+async def _persist(fn, *args, **kwargs):
+    """Record something about a call. The call itself never waits on, or fails because of, the database."""
+    try:
+        return await db.run(fn, *args, **kwargs)
+    except Exception as e:
+        log.warning("Couldn't save %s: %s", fn.__name__, e)
+        return None
 
 
 def _seconds_left(g: game.Game) -> float:
@@ -135,6 +170,8 @@ def _seconds_left(g: game.Game) -> float:
 def _purge():
     cutoff = time.time() - 900
     for key in [k for k, g in games.items() if g.started < cutoff]:
+        if games[key].persisted and not games[key].outcome:
+            asyncio.get_running_loop().create_task(_persist(progress.abandon, key))
         del games[key]
     for key in [k for k, (_, at, *_rest) in speech.items() if at < cutoff]:
         del speech[key]
@@ -163,6 +200,71 @@ async def public_stats():
         "minutes": round(stats["seconds"] / 60),
     }
 
+
+# ---------- accounts ----------
+
+class Credentials(BaseModel):
+    username: str = Field(min_length=1, max_length=40)
+    password: str = Field(min_length=1, max_length=accounts.PASSWORD_MAX)
+
+
+def _set_session(request: Request, response: Response, token: str) -> None:
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(accounts.COOKIE, token, max_age=config.SESSION_DAYS * 86400, httponly=True,
+                        secure=secure, samesite="lax", path="/")
+
+
+def _ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
+@app.post("/api/auth/register")
+async def register(body: Credentials, request: Request, response: Response):
+    if not accounts.signup_by_ip.allow(_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many new accounts from here. Try again later.")
+    try:
+        user = await db.run(accounts.register, body.username, body.password)
+    except accounts.AccountError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    _set_session(request, response, await db.run(accounts.create_session, user["id"]))
+    return {"user": accounts.public(user)}
+
+
+@app.post("/api/auth/login")
+async def login(body: Credentials, request: Request, response: Response):
+    if not accounts.login_by_ip.allow(_ip(request)) or not accounts.login_by_name.allow(body.username.strip().lower()):
+        raise HTTPException(status_code=429, detail="Too many tries. Wait a few minutes.")
+    user = await db.run(accounts.login, body.username, body.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Wrong username or password.")
+    _set_session(request, response, await db.run(accounts.create_session, user["id"]))
+    return {"user": accounts.public(user)}
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request, response: Response):
+    await db.run(accounts.revoke, request.cookies.get(accounts.COOKIE))
+    response.delete_cookie(accounts.COOKIE, path="/")
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+async def me(request: Request):
+    user = await current_user(request)
+    return {"user": accounts.public(user) if user else None}
+
+
+@app.get("/api/player")
+async def player(user: dict = Depends(signed_in)):
+    return await db.run(progress.player_view, user["id"])
+
+
+@app.get("/api/leaderboard")
+async def leaderboard():
+    return {"top": await db.run(progress.leaderboard, 20)}
+
+
+# ---------- a call ----------
 
 class Start(BaseModel):
     hour: int = Field(ge=0, le=23)
@@ -216,6 +318,10 @@ async def start_game(body: Start, request: Request):
         raise HTTPException(status_code=429, detail="Dadi has gone for her nap. Try again in a while.")
     hits.append(now)
 
+    user = None if body.demo or body.trailer else await current_user(request)
+    if user:  # who can pick up, who's due, how experienced: the database decides, not the browser
+        ctx = await db.run(progress.start_context, user["id"])
+        body.roles, body.meet, body.calls, body.recent = ctx["roles"], ctx["meet"], ctx["calls"], ctx["recent"]
     code = game.daily_code(today()) if body.daily and not body.trailer else body.code
     if not code and not body.demo and not body.trailer:  # free play: who picks up, and not the same situation twice in a row
         role = pick_role(body)
@@ -229,7 +335,16 @@ async def start_game(body: Start, request: Request):
     returning = None if body.demo or body.daily or body.code or body.trailer else body.returning_name
     g = game.Game(body.hour, returning, demo=body.demo, lang=body.lang, code=code, boss_off=body.boss_off, daily=body.daily,
                   boss_level=0 if body.calls < 3 else 1 if body.calls < 10 else 2, trailer=body.trailer)
+    g.user_id = user["id"] if user else None
+    g.persisted = False
+    g.lock = asyncio.Lock()       # one request at a time per call: a double-tap can't play two turns at once
+    g.seq = 0                     # the last turn number handled, so a retried turn isn't played twice
+    g.last_turn = None
+    g.pending: dict[str, int] = {}  # counter-moves the server actually issued and the player hasn't met yet
     games[g.id] = g
+    if not g.demo and not g.trailer:  # demo and trailer runs never touch the database
+        mode = "daily" if g.daily else "challenge" if body.code else "free"
+        g.persisted = bool(await _persist(progress.open_session, g, g.user_id, mode))
     if body.quiz is not None and not g.demo and not g.trailer:
         stats["quiz_before"][0] += 1 if body.quiz is False else 0
         stats["quiz_before"][1] += 1
@@ -242,20 +357,45 @@ async def start_game(body: Start, request: Request):
         "story_built": g.story_built, "demo": g.demo, "lang": g.lang,
         "code": g.code, "daily": g.daily, "boss_off": g.boss_off,
         "role": g.role, "title": {"dadi": "Dadi", "didi": "Pinky", "dadaji": "Dadaji"}[g.role], "audio": g.character["audio"],
+        "saved": g.persisted and g.user_id is not None,
         **({"debug": character.debug(g.character)} if config.DEBUG else {}),
     })
 
 
 class Turn(BaseModel):
     said: str = Field(min_length=1, max_length=600)
+    seq: int | None = Field(default=None, ge=1, le=10_000)  # the page's turn number: a retry repeats it
+
+
+async def _log_new(g: game.Game, since: int) -> None:
+    """Save the engine's record of what just happened (never the player's words)."""
+    if not g.persisted:
+        return
+    for i, entry in enumerate(g.timeline[since:], start=since):
+        await _persist(progress.add_event, g.id, i, **progress.event_from_timeline(g, entry))
 
 
 @app.post("/api/game/{game_id}/turn")
-async def play_turn(game_id: str, body: Turn):
-    g = _get_game(game_id)
-    if g.outcome:
-        raise HTTPException(status_code=409, detail="This call has ended.")
-    result = await g.turn(body.said, _seconds_left(g))
+async def play_turn(game_id: str, body: Turn, request: Request):
+    g = await _get_game(game_id, request)
+    async with g.lock:
+        if body.seq is not None and body.seq <= g.seq:
+            if body.seq == g.seq and g.last_turn is not None:
+                return g.last_turn  # the same request again: the same answer, nothing played twice
+            raise HTTPException(status_code=409, detail="That turn was already played.")
+        if g.outcome:
+            raise HTTPException(status_code=409, detail="This call has ended.")
+        since = len(g.timeline)
+        result = await g.turn(body.said, _seconds_left(g))
+        if result.get("effect") in game.COUNTER_EFFECTS:
+            g.pending[result["effect"]] = g.pending.get(result["effect"], 0) + 1
+        out = _speakable(g, result)
+        g.seq, g.last_turn = body.seq or g.seq + 1, out
+        await _log_new(g, since)
+        return out
+
+
+def _speakable(g: game.Game, result: dict) -> dict:
     if not result["reply"]:
         result["speech"] = None
     elif result["canned"] is None:
@@ -292,9 +432,9 @@ async def spoken_reply(token: str):
 
 
 @app.post("/api/game/{game_id}/flip")
-async def flip_round(game_id: str):
+async def flip_round(game_id: str, request: Request):
     """The last round: a stranger's voice calls the player, using the player's own words."""
-    g = _get_game(game_id)
+    g = await _get_game(game_id, request)
     tactic, line = g.mirror_line()  # the pattern they leaned on hardest, in their own words
     if not line:
         return {"own_line": None, "pattern": None, "speech": _audio(g, "flip_open")}
@@ -308,9 +448,13 @@ class FlipResult(BaseModel):
 
 
 @app.post("/api/game/{game_id}/flip/result")
-async def flip_result(game_id: str, body: FlipResult):
+async def flip_result(game_id: str, body: FlipResult, request: Request):
     global _stats_dirty
-    g = _get_game(game_id)
+    g = await _get_game(game_id, request)
+    if not g.outcome:
+        raise HTTPException(status_code=409, detail="Finish the call first.")
+    if g.persisted:
+        await _persist(progress.record_mirror, g, g.user_id, body.hung_up)
     if not g.demo and not g.trailer and not getattr(g, "flip_counted", False):
         g.flip_counted = True
         stats["flip"][0] += 1 if body.hung_up else 0
@@ -324,12 +468,15 @@ class CutOff(BaseModel):
 
 
 @app.post("/api/game/{game_id}/cutoff")
-async def cut_off(game_id: str, body: CutOff):
-    g = _get_game(game_id)
-    result = g.cut_off(body.said)
-    if result is None:
-        raise HTTPException(status_code=409, detail="No reason to interrupt.")
-    return _his(g, result)
+async def cut_off(game_id: str, body: CutOff, request: Request):
+    g = await _get_game(game_id, request)
+    async with g.lock:
+        since = len(g.timeline)
+        result = g.cut_off(body.said)
+        if result is None:
+            raise HTTPException(status_code=409, detail="No reason to interrupt.")
+        await _log_new(g, since)
+        return _his(g, result)
 
 
 class Counter(BaseModel):
@@ -338,11 +485,19 @@ class Counter(BaseModel):
 
 
 @app.post("/api/game/{game_id}/counter")
-async def counter_move(game_id: str, body: Counter):
-    g = _get_game(game_id)
+async def counter_move(game_id: str, body: Counter, request: Request):
+    g = await _get_game(game_id, request)
     if body.effect not in game.COUNTER_EFFECTS:
         raise HTTPException(status_code=400, detail="Unknown move")
-    return _his(g, g.counter_result(body.effect, body.passed))
+    async with g.lock:
+        # Only a counter-move she actually made, and only once: otherwise "I passed" is free trust.
+        if not g.pending.get(body.effect) or g.outcome:
+            raise HTTPException(status_code=409, detail="She didn't do that.")
+        g.pending[body.effect] -= 1
+        since = len(g.timeline)
+        result = g.counter_result(body.effect, body.passed)
+        await _log_new(g, since)
+        return _his(g, result)
 
 
 class End(BaseModel):
@@ -352,13 +507,15 @@ class End(BaseModel):
 
 
 @app.post("/api/game/{game_id}/end")
-async def end_game(game_id: str, body: End | None = None):
+async def end_game(game_id: str, request: Request, body: End | None = None):
     global _stats_dirty
-    g = _get_game(game_id)
-    if not g.outcome:
-        g.finish_state(_seconds_left(g))
-    if not g.outcome:  # they hung up, or their clock ran out first
-        g.outcome = "hung_up"
+    g = await _get_game(game_id, request)
+    async with g.lock:
+        if not g.outcome:
+            g.finish_state(_seconds_left(g))
+        if not g.outcome:  # they hung up, or their clock ran out first
+            g.outcome = "hung_up"
+        saved = await _persist(progress.record_end, g, g.user_id) if g.persisted else None
     first_report = not getattr(g, "reported", False)
     report = g.report(body.seen if body else None, body.last if body else None)
     if first_report and not g.demo and not g.trailer:
@@ -375,6 +532,11 @@ async def end_game(game_id: str, body: End | None = None):
             stats["reformed"] += 1
         _stats_dirty = True
     report["crack_rate"] = round(100 * stats["cracked"] / max(1, stats["plays"]), 1)
+    if saved is not None and g.user_id is not None:
+        if saved["recorded"]:
+            g.unlocked_now = saved["unlocked"]
+        report["unlocked"] = getattr(g, "unlocked_now", [])
+        report["saved"] = True
     return _his(g, report)
 
 
@@ -383,14 +545,22 @@ class Answers(BaseModel):
 
 
 @app.post("/api/game/{game_id}/answers")
-async def answer_questions(game_id: str, body: Answers):
+async def answer_questions(game_id: str, body: Answers, request: Request):
     """The three questions about this run. The first answers are the ones that count."""
     global _stats_dirty
-    g = _get_game(game_id)
+    g = await _get_game(game_id, request)
     if not g.outcome:
         raise HTTPException(status_code=409, detail="Finish the call first.")
-    first = g.knowledge is None
-    result = scoring.grade(g, body.answers)
+    async with g.lock:
+        first = g.knowledge is None
+        result = scoring.grade(g, body.answers)
+        if g.persisted:
+            await _persist(progress.record_end, g, g.user_id)  # in case the end was never reported
+            await _persist(progress.record_completion, g, g.user_id)
+    if g.persisted and g.user_id is not None:
+        view = await _persist(progress.player_view, g.user_id)
+        if view:
+            result["player"] = {"best_score": view["stats"]["best_score"], "rank": view["rank"], "completed": view["stats"]["completed"]}
     if first and not g.demo and not g.trailer:
         stats["quiz_after"][0] += sum(result["correct"])
         stats["quiz_after"][1] += len(result["correct"])
@@ -398,47 +568,49 @@ async def answer_questions(game_id: str, body: Answers):
     return _his(g, result)
 
 
-class Submit(BaseModel):
-    name: str = Field(min_length=2, max_length=16)
-
-
 @app.post("/api/game/{game_id}/submit")
-async def submit_score(game_id: str, body: Submit):
-    """Put a daily run on today's board. The score comes from the server's own record."""
-    g = _get_game(game_id)
-    name = " ".join(body.name.split())
-    if not re.fullmatch(r"[\w .-]{2,16}", name):
-        raise HTTPException(status_code=400, detail="Use letters and numbers only.")
+async def submit_score(game_id: str, request: Request, user: dict = Depends(signed_in)):
+    """Where this daily run stands on today's board. Entries come from the server's own record of
+    completed, ranked calls, under the account's name; nothing the browser sends is a score."""
+    g = await _get_game(game_id, request)
+    if not g.daily or not g.persisted or g.user_id != user["id"]:
+        raise HTTPException(status_code=409, detail="This run can't go on the board.")
     if not scoring.ranked(g) or g.knowledge is None or not g.outcome:
         raise HTTPException(status_code=409, detail="This run can't go on the board.")
-    if getattr(g, "submitted", False):
-        raise HTTPException(status_code=409, detail="Already on the board.")
     date = today()
     if g.code != game.daily_code(date):
         raise HTTPException(status_code=409, detail="That was yesterday's Dadi.")
-    g.submitted = True
-    result = scoring.final(g)
-    entry = {"name": name, "score": result["score"], "knowledge": result["knowledge"], "digits": g.digits,
-             "boss_off": g.boss_off, "at": int(time.time())}
-    async with _board_lock:
-        board = await load_board(date)
-        board.append(entry)
-        board.sort(key=lambda e: (-e["score"], e["at"]))
-        del board[BOARD_SIZE:]
-        rank = board.index(entry) + 1 if entry in board else None
-        try:
-            await store.put(f"daily/{date}.json", json.dumps(board).encode(), "application/json")
-        except Exception as e:
-            log.warning("Could not save the daily board: %s", e)
-    return {"rank": rank, "of": len(board), "top": board[:10]}
+    top, players = await db.run(progress.daily_board, date)
+    rank = await db.run(progress.daily_rank, date, user["username"])
+    return {"rank": rank, "of": players, "top": top}
 
 
 @app.get("/api/daily")
 async def daily_board():
     date = today()
-    board = await load_board(date)
+    top, players = await db.run(progress.daily_board, date)
     # Who picks up stays a secret until she does.
-    return {"date": date, "top": board[:10], "players": len(board)}
+    return {"date": date, "top": top, "players": players}
+
+
+@app.post("/api/game/{game_id}/abandon")
+async def abandon_game(game_id: str, request: Request):
+    """The page was reloaded or closed mid-call. A live, timed call can't resume, so it's closed and
+    not counted, and the player is told. Idempotent: an unknown or finished call is simply ignored."""
+    g = games.get(game_id)
+    if g is not None:
+        if g.user_id is not None:
+            user = await current_user(request)
+            if not user or user["id"] != g.user_id:
+                return {"abandoned": False}
+        if g.outcome:
+            return {"abandoned": False}
+        del games[game_id]
+    elif not await db.run(db.row, "SELECT 1 FROM game_sessions WHERE id = ? AND user_id IS NULL", (game_id,)):
+        user = await current_user(request)  # a call from a past process: only its owner can close it
+        if not user or not await db.run(db.row, "SELECT 1 FROM game_sessions WHERE id = ? AND user_id = ?", (game_id, user["id"])):
+            return {"abandoned": False}
+    return {"abandoned": bool(await _persist(progress.abandon, game_id))}
 
 
 @app.websocket("/ws/listen")

@@ -47,6 +47,9 @@ LLM_FALLBACK_MODEL = _env("LLM_FALLBACK_MODEL")
 LLM_REASONING_EFFORT = _env("LLM_REASONING_EFFORT")
 
 DATA_DIR = Path(_env("DATA_DIR") or ROOT / "data")
+DATABASE_PATH = _env("DATABASE_PATH") or str(DATA_DIR / "hangup.db")
+GAME_VERSION = "2026.11.12"   # stored on every call, so a code can be replayed on the rules it was played on
+SESSION_DAYS = 30
 S3_BUCKET = _env("S3_BUCKET")
 S3_ENDPOINT_URL = _env("S3_ENDPOINT_URL")
 S3_ACCESS_KEY_ID = _env("S3_ACCESS_KEY_ID")
