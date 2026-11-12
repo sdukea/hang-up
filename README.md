@@ -3,35 +3,25 @@
 </p>
 
 <p align="center">
-  <b>Voice game</b> &nbsp;·&nbsp; <b>Hindi + English</b> &nbsp;·&nbsp; <b>Built on Gnani AI</b>
-</p>
-
-<p align="center">
   <a href="https://play-hangup.onrender.com"><img alt="Play it live" src="https://img.shields.io/badge/▶_Play_it_live-play--hangup.onrender.com-ff2e7e?style=for-the-badge&labelColor=1b0b2e"></a>
   <a href="https://play-hangup.onrender.com/hang-up.apk"><img alt="Android app" src="https://img.shields.io/badge/Android-APK-00c2a8?style=for-the-badge&logo=android&logoColor=white&labelColor=1b0b2e"></a>
   <a href="PITCH.md"><img alt="Solution pitch" src="https://img.shields.io/badge/Solution_pitch-1_page-ffb300?style=for-the-badge&labelColor=1b0b2e"></a>
 </p>
 
 <p align="center">
-  <img alt="Site status" src="https://img.shields.io/website?url=https%3A%2F%2Fplay-hangup.onrender.com%2F&label=game&up_message=online&down_message=waking%20up&style=flat-square">
-  <img alt="Gnani Prisma" src="https://img.shields.io/badge/STT-Gnani_Prisma_v3.0-4a1398?style=flat-square">
-  <img alt="Gnani Timbre" src="https://img.shields.io/badge/TTS-Gnani_Timbre_v2.5_%2B_v3.0-4a1398?style=flat-square">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-plain_JS-009688?style=flat-square&logo=fastapi&logoColor=white">
-  <img alt="No accounts, no stored audio" src="https://img.shields.io/badge/privacy-no_accounts_·_no_stored_audio-2a0a5e?style=flat-square">
+  A voice game in Hindi and English, built on <b>Gnani Prisma</b> and <b>Gnani Timbre</b>.
 </p>
 
-<p align="center">
-  <a href="PITCH.md"><b>Solution pitch (1 page)</b></a> &nbsp;·&nbsp; <a href="docs/Hang-Up-Pitch.pdf">PDF</a> &nbsp;·&nbsp;
-  <a href="https://play-hangup.onrender.com/hang-up.apk"><b>Android app (APK)</b></a> &nbsp;·&nbsp;
-  <a href="#play-this-readme">Play</a> &nbsp;·&nbsp;
+<p align="center"><sub>
+  <a href="#play-this-readme">Try it here</a> &nbsp;·&nbsp;
   <a href="#inside-a-call">Screens</a> &nbsp;·&nbsp;
-  <a href="#the-five-dadis">Dadis</a> &nbsp;·&nbsp;
+  <a href="#who-picks-up">Who picks up</a> &nbsp;·&nbsp;
   <a href="#the-playbook">Playbook</a> &nbsp;·&nbsp;
   <a href="#your-phone-rings">Your phone</a> &nbsp;·&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
   <a href="#run-it">Run it</a> &nbsp;·&nbsp;
   <a href="#real-scam-call">Real scam call?</a>
-</p>
+</sub></p>
 
 <img src="docs/readme/mission.svg" alt="Mission briefing beside an animated Kamla Dadi. To: you, a very fake officer. Target: Kamla Dadi, 78. Objective: her 4-digit OTP, before she works you out. Weapon: your voice; hold the button and really talk. Help: Boss, whispering real scam tactics. Warning: Boss may not stay till the end. She asks if you've eaten, she catches your lies, and she hands the phone to her grandson. Every trick you use is one real scammers use. Every counter-move she makes is what people should actually do." width="100%">
 
