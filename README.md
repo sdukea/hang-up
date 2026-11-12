@@ -40,7 +40,7 @@
 ## Inside a call
 
 <p align="center">
-  <img src="docs/readme/call.gif" alt="Highlights of one real recorded call: the title screen, Kusum Dadi picking up, Dadi putting the caller on hold to check the cooker, an Isolation tactic stamp, the first digit won, a Same trick again warning, Your story held, and finally Busted: Dadi reported the caller to 1930." width="300">
+  <img src="docs/readme/call.webp" alt="Highlights of one real recorded call: the title screen, Kusum Dadi picking up, Dadi putting the caller on hold to check the cooker, an Isolation tactic stamp, the first digit won, a Same trick again warning, Your story held, and finally Busted: Dadi reported the caller to 1930." width="300">
 </p>
 
 <p align="center"><sub>One real call, cut to its moments: she puts you on hold, you win a digit, she catches a repeated trick, she busts you. Real speech in, real replies out.</sub></p>
