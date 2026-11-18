@@ -39,9 +39,11 @@
 
 ## Inside a call
 
-https://github.com/user-attachments/assets/e7182abe-c6e1-4103-a958-d52d66c7429e
+<p align="center">
+  <img src="docs/readme/call.avif" alt="One real recorded call: the caller's opener, Kusum Dadi picking up and putting him on hold, an Isolation tactic stamp, the first digit won, Your story held, and finally Busted: Dadi reported the caller to 1930." width="300">
+</p>
 
-<p align="center"><sub>One real call, with sound (press play and unmute): she puts you on hold, you win a digit, your story holds, she busts you and reports you to 1930. Real speech in, real replies out.</sub></p>
+<p align="center"><sub>One real call, cut to its moments: she puts you on hold, you win a digit, your story holds, she busts you and reports you to 1930. Real speech in, real replies out.</sub></p>
 
 ## Play this README
 
